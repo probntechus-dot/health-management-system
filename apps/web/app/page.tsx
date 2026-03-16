@@ -13,4 +13,4 @@ export default async function Page() {
   }
 
   redirect("/receptionist/patients")
-}
+} 
