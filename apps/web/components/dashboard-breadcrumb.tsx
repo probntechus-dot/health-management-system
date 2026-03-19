@@ -9,8 +9,8 @@ import {
 } from "@workspace/ui/components/breadcrumb"
 
 const BREADCRUMB_MAP: Record<string, string> = {
-  "/doctor": "Doctor Dashboard",
-  "/doctor/patients": "Patient Queue",
+  "/doctor": "Dashboard",
+  "/doctor/consultation": "Consultation",
   "/receptionist/patients": "Patients",
   "/settings": "Settings",
   "/admin": "Admin Panel",

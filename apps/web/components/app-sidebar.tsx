@@ -50,8 +50,8 @@ const NAV_CONFIG: Record<string, { label: string; items: NavItem[] }> = {
   doctor: {
     label: "Doctor",
     items: [
-      { title: "Dashboard", url: "/doctor", icon: <StethoscopeIcon /> },
-      { title: "Patient Queue", url: "/doctor/patients", icon: <UsersIcon /> },
+      { title: "Dashboard", url: "/doctor", icon: <LayoutDashboardIcon /> },
+      { title: "Consultation", url: "/doctor/consultation", icon: <StethoscopeIcon /> },
       { title: "Settings", url: "/settings", icon: <SettingsIcon /> },
     ],
   },

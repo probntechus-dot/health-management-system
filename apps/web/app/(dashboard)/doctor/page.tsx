@@ -1,14 +1,15 @@
 import { requireRole } from "@/actions/auth"
-import { DoctorDashboard } from "@/components/clinic/doctor-dashboard"
+import { fetchDashboardStats } from "@/lib/data/dashboard"
+import { DoctorOverview } from "@/components/clinic/doctor-overview"
 
 export default async function DoctorPage() {
   const session = await requireRole(["doctor"])
+  const stats = await fetchDashboardStats(session.clinicSlug)
 
   return (
-    <DoctorDashboard
-      clinicSlug={session.clinicSlug}
+    <DoctorOverview
       doctorName={session.fullName}
-      doctorSpecialty={session.specialization ?? undefined}
+      stats={stats}
     />
   )
 }
