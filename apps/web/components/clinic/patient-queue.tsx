@@ -44,6 +44,12 @@ import {
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { getAllVisits, updateVisitStatus, createVisit } from "@/actions/patients"
 import { logger } from "@/lib/logger"
@@ -159,6 +165,7 @@ export function PatientQueue({
     visitId: string
     status: VisitStatus
   } | null>(null)
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState<string | null>(null)
   const [cancelConfirm, setCancelConfirm] = useState<Visit | null>(null)
   const [cancelPending, setCancelPending] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -304,17 +311,22 @@ export function PatientQueue({
         () => updateVisitStatus(visitId, status),
         (result) => {
           if (result.success) {
-            visitsCache.patchStatus(visitId, status)
-            setPatients((prev) =>
-              prev.map((v) => (v.id === visitId ? { ...v, status } : v))
-            )
+            setStatusDropdownOpen(null)
+            requestAnimationFrame(() => {
+              visitsCache.patchStatus(visitId, status)
+              setPatients((prev) =>
+                prev.map((v) => (v.id === visitId ? { ...v, status } : v))
+              )
+            })
           }
         },
         () => setUpdatingAction(null),
-        () =>
+        () => {
+          setStatusDropdownOpen(null)
           setActionError(
             "Failed to update patient status. Please try again."
           )
+        }
       )
     },
     [patients, fireLatest]
@@ -661,9 +673,57 @@ export function PatientQueue({
                           {visit.reason_for_visit || "-"}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={getStatusVariant(visit.status)}>
-                            {visit.status}
-                          </Badge>
+                          {userRole === "doctor" && label === "Today" ? (
+                            <DropdownMenu
+                              open={statusDropdownOpen === visit.id}
+                              onOpenChange={(open) =>
+                                !updatingAction && setStatusDropdownOpen(open ? visit.id : null)
+                              }
+                            >
+                              <DropdownMenuTrigger asChild>
+                                <button className="focus:outline-none">
+                                  <Badge variant={getStatusVariant(visit.status)} className="cursor-pointer hover:opacity-80">
+                                    {visit.status}
+                                  </Badge>
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start">
+                                {(["waiting", "called", "checked", "cancelled"] as VisitStatus[])
+                                  .filter((s) => s !== visit.status)
+                                  .map((s) => {
+                                    const isLoading =
+                                      updatingAction?.visitId === visit.id &&
+                                      updatingAction.status === s
+                                    return (
+                                      <DropdownMenuItem
+                                        key={s}
+                                        disabled={updatingAction !== null}
+                                        onSelect={(e) => {
+                                          e.preventDefault()
+                                          if (s === "cancelled") {
+                                            setStatusDropdownOpen(null)
+                                            handleStatusChange(visit.id, "cancelled")
+                                          } else {
+                                            applyStatusChange(visit.id, s)
+                                          }
+                                        }}
+                                      >
+                                        <Badge variant={getStatusVariant(s)} className="gap-1">
+                                          {isLoading && (
+                                            <Loader2Icon className="size-3 animate-spin" />
+                                          )}
+                                          {s}
+                                        </Badge>
+                                      </DropdownMenuItem>
+                                    )
+                                  })}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            <Badge variant={getStatusVariant(visit.status)}>
+                              {visit.status}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1 items-center justify-end">
