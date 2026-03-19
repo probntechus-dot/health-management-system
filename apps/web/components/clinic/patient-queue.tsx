@@ -618,9 +618,9 @@ export function PatientQueue({
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 pt-4">
                 {label}
               </span>
-              <Card>
-                <Table>
-                  <TableHeader>
+              <div className="border rounded-lg overflow-hidden">
+              <Table>
+                  <TableHeader className="bg-muted/50">
                     <TableRow>
                       <TableHead className="w-[80px]">Token</TableHead>
                       <TableHead>Patient</TableHead>
@@ -751,7 +751,7 @@ export function PatientQueue({
                     ))}
                   </TableBody>
                 </Table>
-              </Card>
+              </div>
             </div>
           )
         )
