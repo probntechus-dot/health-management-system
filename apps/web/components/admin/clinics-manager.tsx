@@ -127,13 +127,13 @@ export function ClinicsManager() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Users</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="w-[22%]">Name</TableHead>
+                <TableHead className="w-[15%]">Slug</TableHead>
+                <TableHead className="w-[10%]">Status</TableHead>
+                <TableHead className="w-[10%]">Plan</TableHead>
+                <TableHead className="w-[8%]">Users</TableHead>
+                <TableHead className="w-[15%]">Created</TableHead>
+                <TableHead className="w-[20%] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -173,7 +173,7 @@ export function ClinicsManager() {
                   <TableCell className="text-xs text-muted-foreground">
                     {new Date(clinic.created_at).toLocaleDateString()}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="overflow-visible">
                     <div className="flex justify-end gap-1">
                       <Button
                         variant="ghost"

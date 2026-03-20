@@ -91,11 +91,11 @@ export function SqlConsole() {
                   {result.capped && " (capped at 500)"}
                   {result.command && ` — ${result.command}`}
                 </div>
-                <Table>
+                <Table className="table-auto">
                   <TableHeader>
                     <TableRow>
                       {result.columns.map((col) => (
-                        <TableHead key={col} className="text-xs">
+                        <TableHead key={col} className="text-xs whitespace-nowrap">
                           {col}
                         </TableHead>
                       ))}
@@ -105,7 +105,7 @@ export function SqlConsole() {
                     {result.rows.map((row, i) => (
                       <TableRow key={i}>
                         {row.map((val, j) => (
-                          <TableCell key={j} className="font-mono text-xs">
+                          <TableCell key={j} className="font-mono text-xs max-w-[300px] truncate">
                             {val}
                           </TableCell>
                         ))}

@@ -634,13 +634,13 @@ export function PatientQueue({
               <Table>
                   <TableHeader className="bg-muted/50">
                     <TableRow>
-                      <TableHead className="w-[80px]">Token</TableHead>
-                      <TableHead>Patient</TableHead>
-                      <TableHead className="w-[60px]">Age</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead className="w-[100px]">Status</TableHead>
-                      <TableHead className="text-right w-[100px]">
+                      <TableHead className="w-[8%]">Token</TableHead>
+                      <TableHead className="w-[20%]">Patient</TableHead>
+                      <TableHead className="w-[6%]">Age</TableHead>
+                      <TableHead className="w-[15%]">Contact</TableHead>
+                      <TableHead className="w-[25%]">Reason</TableHead>
+                      <TableHead className="w-[12%]">Status</TableHead>
+                      <TableHead className="w-[14%] text-right">
                         Action
                       </TableHead>
                     </TableRow>
@@ -648,11 +648,11 @@ export function PatientQueue({
                   <TableBody>
                     {group.map((visit) => (
                       <TableRow key={visit.id} className="group">
-                        <TableCell>
-                          <span className="font-semibold text-primary">
+                        <TableCell className="overflow-visible whitespace-normal">
+                          <div className="font-semibold text-primary leading-tight">
                             {visit.token_label.replace(/^T-/, "")}
-                          </span>
-                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                          </div>
+                          <div className="text-xs text-muted-foreground">
                             {formatMrn(visit.patient_mrn)}
                           </div>
                         </TableCell>
@@ -672,7 +672,7 @@ export function PatientQueue({
                         <TableCell className="text-muted-foreground">
                           {visit.reason_for_visit || "-"}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="overflow-visible">
                           {userRole === "doctor" && label === "Today" ? (
                             <DropdownMenu
                               open={statusDropdownOpen === visit.id}
@@ -725,7 +725,7 @@ export function PatientQueue({
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="overflow-visible">
                           <div className="flex gap-1 items-center justify-end">
                             {userRole === "doctor" ? (
                               visit.status === "cancelled" ? null : label ===
