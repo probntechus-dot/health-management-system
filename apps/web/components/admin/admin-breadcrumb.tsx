@@ -9,15 +9,15 @@ import {
 } from "@workspace/ui/components/breadcrumb"
 
 const BREADCRUMB_MAP: Record<string, string> = {
-  "/doctor": "Dashboard",
-  "/doctor/consultation": "Consultation",
-  "/receptionist/patients": "Patients",
-  "/settings": "Settings",
+  "/admin": "Overview",
+  "/admin/clinics": "Clinics",
+  "/admin/sql": "SQL Console",
+  "/admin/deploy": "Deploy",
 }
 
-export function DashboardBreadcrumb() {
+export function AdminBreadcrumb() {
   const pathname = usePathname()
-  const title = BREADCRUMB_MAP[pathname] ?? "Dashboard"
+  const title = BREADCRUMB_MAP[pathname] ?? "Admin"
 
   return (
     <Breadcrumb>

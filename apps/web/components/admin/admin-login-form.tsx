@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
-import { adminLogin } from "@/actions/admin"
+import { adminLogin } from "@/actions/admin/auth"
 import { Loader2Icon, AlertCircleIcon, ShieldIcon } from "lucide-react"
 
 export function AdminLoginForm() {
@@ -29,7 +29,7 @@ export function AdminLoginForm() {
       if (result.error) {
         setError(result.error)
       } else {
-        router.refresh()
+        router.push("/admin")
       }
     })
   }

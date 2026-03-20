@@ -65,10 +65,10 @@ const NAV_CONFIG: Record<string, { label: string; items: NavItem[] }> = {
   admin: {
     label: "Admin",
     items: [
-      { title: "Overview", url: "/admin?tab=overview", icon: <LayoutDashboardIcon /> },
-      { title: "Clinics", url: "/admin?tab=clinics", icon: <BuildingIcon /> },
-      { title: "SQL", url: "/admin?tab=sql", icon: <DatabaseIcon /> },
-      { title: "Deploy", url: "/admin?tab=deploy", icon: <UploadIcon /> },
+      { title: "Overview", url: "/admin", icon: <LayoutDashboardIcon /> },
+      { title: "Clinics", url: "/admin/clinics", icon: <BuildingIcon /> },
+      { title: "SQL", url: "/admin/sql", icon: <DatabaseIcon /> },
+      { title: "Deploy", url: "/admin/deploy", icon: <UploadIcon /> },
     ],
   },
 }
