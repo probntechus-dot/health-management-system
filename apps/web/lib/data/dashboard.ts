@@ -16,12 +16,26 @@ export type DashboardStats = {
     status: string
     created_at: string
   }[]
+  recentPrescriptions: {
+    id: string
+    visit_id: string
+    patient_name: string
+    diagnosis: string | null
+    medicine_count: number
+    created_at: string
+  }[]
+  todayFollowUps: {
+    id: string
+    patient_name: string
+    contact: string
+    last_diagnosis: string | null
+  }[]
 }
 
 export async function fetchDashboardStats(clinicSlug: string): Promise<DashboardStats> {
   const sql = tenantSql(clinicSlug)
 
-  const [todayCounts, weeklyVisits, upcomingQueue] = await Promise.all([
+  const [todayCounts, weeklyVisits, upcomingQueue, recentPrescriptions, todayFollowUps] = await Promise.all([
     // Today's visit counts by status
     sql<{ status: string; count: string }[]>`
       SELECT status, COUNT(*)::text AS count
@@ -56,7 +70,33 @@ export async function fetchDashboardStats(clinicSlug: string): Promise<Dashboard
       WHERE v.created_at::date = CURRENT_DATE
         AND v.status IN ('waiting', 'called')
       ORDER BY v.token_number ASC
+      LIMIT 8
+    `,
+
+    // Recent prescriptions written today
+    sql<{ id: string; visit_id: string; patient_name: string; diagnosis: string | null; medicine_count: string; created_at: string }[]>`
+      SELECT pr.id, pr.visit_id, p.full_name AS patient_name,
+             pr.diagnosis,
+             jsonb_array_length(pr.medicines)::text AS medicine_count,
+             pr.created_at::text
+      FROM prescriptions pr
+      JOIN visits v ON v.id = pr.visit_id
+      JOIN patients p ON p.id = v.patient_id
+      WHERE pr.created_at::date = CURRENT_DATE
+      ORDER BY pr.created_at DESC
       LIMIT 5
+    `,
+
+    // Patients with follow-up due today
+    sql<{ id: string; patient_name: string; contact: string; last_diagnosis: string | null }[]>`
+      SELECT p.id, p.full_name AS patient_name,
+             p.contact_number AS contact,
+             pr.diagnosis AS last_diagnosis
+      FROM prescriptions pr
+      JOIN visits v ON v.id = pr.visit_id
+      JOIN patients p ON p.id = v.patient_id
+      WHERE pr.follow_up = CURRENT_DATE
+      ORDER BY pr.created_at DESC
     `,
   ])
 
@@ -80,6 +120,20 @@ export async function fetchDashboardStats(clinicSlug: string): Promise<Dashboard
       reason_for_visit: r.reason_for_visit,
       status: r.status,
       created_at: r.created_at,
+    })),
+    recentPrescriptions: recentPrescriptions.map((r) => ({
+      id: r.id,
+      visit_id: r.visit_id,
+      patient_name: r.patient_name,
+      diagnosis: r.diagnosis,
+      medicine_count: parseInt(r.medicine_count),
+      created_at: r.created_at,
+    })),
+    todayFollowUps: todayFollowUps.map((r) => ({
+      id: r.id,
+      patient_name: r.patient_name,
+      contact: r.contact,
+      last_diagnosis: r.last_diagnosis,
     })),
   }
 }
