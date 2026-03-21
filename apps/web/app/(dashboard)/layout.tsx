@@ -1,3 +1,4 @@
+import { cookies } from "next/headers"
 import { requireAuth } from "@/actions/auth"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -20,10 +21,12 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await requireAuth()
+  const [session, cookieStore] = await Promise.all([requireAuth(), cookies()])
+  const sidebarCookie = cookieStore.get("sidebar_state")
+  const defaultOpen = sidebarCookie ? sidebarCookie.value === "true" : false
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={defaultOpen}>
       <AppSidebar
         user={{
           fullName: session.fullName,
