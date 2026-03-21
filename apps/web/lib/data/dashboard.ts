@@ -7,7 +7,7 @@ export type DashboardStats = {
   todayChecked: number
   todayWaiting: number
   todayCancelled: number
-  weeklyVisits: { day: string; count: number }[]
+  weeklyVisits: { day: string; all: number; checked: number; waiting: number; cancelled: number }[]
   upcomingQueue: {
     id: string
     token_label: string
@@ -36,16 +36,26 @@ export async function fetchDashboardStats(clinicSlug: string): Promise<Dashboard
       GROUP BY status
     `,
 
-    // Weekly visits (last 7 days)
-    sql<{ day: string; count: string }[]>`
-      SELECT to_char(d.day, 'Dy') AS day, COALESCE(v.cnt, 0)::text AS count
+    // Weekly visits (last 7 days) with status breakdown
+    sql<{ day: string; all_count: string; checked: string; waiting: string; cancelled: string }[]>`
+      SELECT
+        to_char(d.day, 'Dy') AS day,
+        COALESCE(v.all_count, 0)::text AS all_count,
+        COALESCE(v.checked, 0)::text AS checked,
+        COALESCE(v.waiting, 0)::text AS waiting,
+        COALESCE(v.cancelled, 0)::text AS cancelled
       FROM generate_series(
         CURRENT_DATE - INTERVAL '6 days',
         CURRENT_DATE,
         '1 day'
       ) AS d(day)
       LEFT JOIN (
-        SELECT created_at::date AS visit_date, COUNT(*) AS cnt
+        SELECT
+          created_at::date AS visit_date,
+          COUNT(*) AS all_count,
+          COUNT(*) FILTER (WHERE status = 'checked') AS checked,
+          COUNT(*) FILTER (WHERE status = 'waiting') AS waiting,
+          COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled
         FROM visits
         WHERE created_at::date >= CURRENT_DATE - INTERVAL '6 days'
         GROUP BY created_at::date
@@ -90,7 +100,13 @@ export async function fetchDashboardStats(clinicSlug: string): Promise<Dashboard
     todayChecked: statusMap['checked'] ?? 0,
     todayWaiting: statusMap['waiting'] ?? 0,
     todayCancelled: statusMap['cancelled'] ?? 0,
-    weeklyVisits: weeklyVisits.map((r) => ({ day: r.day, count: parseInt(r.count) })),
+    weeklyVisits: weeklyVisits.map((r) => ({
+      day: r.day,
+      all: parseInt(r.all_count),
+      checked: parseInt(r.checked),
+      waiting: parseInt(r.waiting),
+      cancelled: parseInt(r.cancelled),
+    })),
     upcomingQueue: upcomingQueue.map((r) => ({
       id: r.id,
       token_label: r.token_label,

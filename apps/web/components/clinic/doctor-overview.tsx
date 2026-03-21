@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import {
   Card,
@@ -69,8 +70,19 @@ function StatCard({
   )
 }
 
+type VisitFilter = "all" | "checked" | "waiting" | "cancelled"
+
+const filterConfig: { key: VisitFilter; label: string; color: string }[] = [
+  { key: "all", label: "All", color: "bg-primary" },
+  { key: "checked", label: "Checked", color: "bg-emerald-500" },
+  { key: "waiting", label: "Waiting", color: "bg-amber-500" },
+  { key: "cancelled", label: "Cancelled", color: "bg-red-500" },
+]
+
 export function DoctorOverview({ doctorName, stats }: DoctorOverviewProps) {
-  const maxVisits = Math.max(...stats.weeklyVisits.map((d) => d.count), 1)
+  const [visitFilter, setVisitFilter] = useState<VisitFilter>("all")
+  const barColor = filterConfig.find((f) => f.key === visitFilter)!.color
+  const maxVisits = Math.max(...stats.weeklyVisits.map((d) => d[visitFilter]), 1)
 
   return (
     <div className="space-y-6">
@@ -119,27 +131,50 @@ export function DoctorOverview({ doctorName, stats }: DoctorOverviewProps) {
           {/* Weekly Visits Chart */}
           <Card className="h-full flex flex-col">
             <CardHeader>
-              <CardTitle>Weekly Visits</CardTitle>
+              <div className="flex items-center justify-between gap-4">
+                <CardTitle>Weekly Visits</CardTitle>
+                <div className="flex gap-1 rounded-lg bg-muted p-1">
+                  {filterConfig.map((f) => (
+                    <button
+                      key={f.key}
+                      onClick={() => setVisitFilter(f.key)}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                        visitFilter === f.key
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
               <div className="flex items-end justify-between gap-3 flex-1 min-h-32">
-                {stats.weeklyVisits.map((d) => (
-                  <div
-                    key={d.day}
-                    className="flex-1 flex flex-col items-center gap-1.5"
-                  >
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {d.count}
-                    </span>
+                {stats.weeklyVisits.map((d) => {
+                  const value = d[visitFilter]
+                  const pct = maxVisits > 0 ? (value / maxVisits) * 100 : 0
+                  return (
                     <div
-                      className="w-full bg-primary rounded-md min-h-1 transition-all duration-300"
-                      style={{ height: `${(d.count / maxVisits) * 100}%` }}
-                    />
-                    <span className="text-xs text-muted-foreground">
-                      {d.day}
-                    </span>
-                  </div>
-                ))}
+                      key={d.day}
+                      className="flex-1 flex flex-col items-center gap-1.5 h-full"
+                    >
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {value}
+                      </span>
+                      <div className="w-full flex-1 flex items-end">
+                        <div
+                          className={`w-full ${barColor} rounded-md transition-all duration-300`}
+                          style={{ height: value === 0 ? "2px" : `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {d.day}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
