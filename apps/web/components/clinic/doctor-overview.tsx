@@ -158,12 +158,12 @@ export function DoctorOverview({ doctorName, stats }: DoctorOverviewProps) {
                   return (
                     <div
                       key={d.day}
-                      className="flex-1 flex flex-col items-center gap-1.5 h-full"
+                      className="flex-1 flex flex-col items-center h-full"
                     >
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {value}
-                      </span>
-                      <div className="w-full flex-1 flex items-end">
+                      <div className="w-full flex-1 flex flex-col items-center justify-end gap-1">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {value}
+                        </span>
                         <div
                           className={`w-full ${barColor} rounded-md transition-all duration-300`}
                           style={{ height: value === 0 ? "2px" : `${pct}%` }}
