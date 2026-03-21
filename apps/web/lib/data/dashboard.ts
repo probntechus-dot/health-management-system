@@ -1,5 +1,4 @@
-'use server'
-
+import { unstable_cache } from 'next/cache'
 import { tenantSql } from '@/lib/db/tenant'
 
 export type DashboardStats = {
@@ -24,7 +23,7 @@ export type DashboardStats = {
   }[]
 }
 
-export async function fetchDashboardStats(clinicSlug: string): Promise<DashboardStats> {
+async function _fetchDashboardStats(clinicSlug: string): Promise<DashboardStats> {
   const sql = tenantSql(clinicSlug)
 
   const [todayCounts, weeklyVisits, upcomingQueue, todayFollowUps] = await Promise.all([
@@ -122,4 +121,12 @@ export async function fetchDashboardStats(clinicSlug: string): Promise<Dashboard
       last_diagnosis: r.last_diagnosis,
     })),
   }
+}
+
+export function fetchDashboardStats(clinicSlug: string): Promise<DashboardStats> {
+  return unstable_cache(
+    () => _fetchDashboardStats(clinicSlug),
+    [`dashboard-stats-${clinicSlug}`],
+    { tags: [`dashboard:${clinicSlug}`] }
+  )()
 }

@@ -3,6 +3,7 @@
 import { requireAuth, requireRole } from './auth'
 import { updateVisitStatus } from './patients'
 import { revalidatePath } from 'next/cache'
+import { updateTag } from 'next/cache'
 import { tenantSql } from '@/lib/db/tenant'
 import { logger } from '@/lib/logger'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -76,6 +77,7 @@ export async function createPrescription(formData: FormData) {
 
     await updateVisitStatus(visitId, 'checked')
     revalidatePath('/doctor')
+    updateTag(`dashboard:${session.clinicSlug}`)
 
     return { success: true, prescription: rows[0] }
   } catch (error) {
@@ -135,6 +137,7 @@ export async function updatePrescription(prescriptionId: string, formData: FormD
     }
 
     revalidatePath('/doctor')
+    updateTag(`dashboard:${session.clinicSlug}`)
     return { success: true, prescription: rows[0] }
   } catch (error) {
     logger.error('Error updating prescription', error)
