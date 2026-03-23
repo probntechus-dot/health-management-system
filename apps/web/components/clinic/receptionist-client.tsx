@@ -23,15 +23,17 @@ export function ReceptionistClient({ clinicSlug }: { clinicSlug: string }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(360px,420px)_1fr] gap-4 items-start">
-      <PatientForm
-        clinicSlug={clinicSlug}
-        prefill={prefill}
-        onSuccess={() => {
-          setRefreshKey((k) => k + 1)
-          setPrefill(undefined)
-        }}
-      />
-      <div className="overflow-y-auto lg:h-[calc(100vh-120px)]">
+      <div className="lg:sticky lg:top-0">
+        <PatientForm
+          clinicSlug={clinicSlug}
+          prefill={prefill}
+          onSuccess={() => {
+            setRefreshKey((k) => k + 1)
+            setPrefill(undefined)
+          }}
+        />
+      </div>
+      <div>
         <PatientQueue
           clinicSlug={clinicSlug}
           userRole="receptionist"

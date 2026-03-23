@@ -13,6 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@workspace/ui/components/sidebar"
 import {
   DropdownMenu,
@@ -94,6 +95,7 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const pathname = usePathname()
+  const { setOpenMobile } = useSidebar()
   const nav = NAV_CONFIG[user.role] ?? NAV_CONFIG["receptionist"]!
 
 
@@ -103,7 +105,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/">
+              <Link href="/" onClick={() => setOpenMobile(false)}>
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <StethoscopeIcon className="size-4" />
                 </div>
@@ -133,7 +135,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                     isActive={isActive}
                     tooltip={item.title}
                   >
-                    <Link href={item.url}>
+                    <Link href={item.url} onClick={() => setOpenMobile(false)}>
                       {item.icon}
                       <span>{item.title}</span>
                     </Link>
@@ -187,7 +189,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/settings">
+                  <Link href="/settings" onClick={() => setOpenMobile(false)}>
                     <SettingsIcon />
                     Settings
                   </Link>
