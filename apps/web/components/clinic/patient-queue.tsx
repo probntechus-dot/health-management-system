@@ -679,17 +679,17 @@ export function PatientQueue({
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 pt-4">
                 {label}
               </span>
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-hidden @container">
               <Table>
                   <TableHeader className="bg-muted/50">
                     <TableRow>
-                      <TableHead className="w-[8%]">Token</TableHead>
-                      <TableHead className="w-[20%]">Patient</TableHead>
-                      <TableHead className="w-[6%]">Age</TableHead>
-                      <TableHead className="w-[15%]">Contact</TableHead>
-                      <TableHead className="w-[25%]">Reason</TableHead>
-                      <TableHead className="w-[12%]">Status</TableHead>
-                      <TableHead className="w-[14%] text-right">
+                      <TableHead className="w-16">Token</TableHead>
+                      <TableHead>Patient</TableHead>
+                      <TableHead className="w-12">Age</TableHead>
+                      <TableHead className="w-32">Contact</TableHead>
+                      <TableHead>Reason</TableHead>
+                      <TableHead className="w-14 @3xl:w-24">Status</TableHead>
+                      <TableHead className="w-20 text-right">
                         Action
                       </TableHead>
                     </TableRow>
@@ -697,7 +697,7 @@ export function PatientQueue({
                   <TableBody>
                     {group.map((visit) => (
                       <TableRow key={visit.id} className="group">
-                        <TableCell className="overflow-visible whitespace-normal">
+                        <TableCell className="!overflow-visible !whitespace-normal">
                           <div className="font-semibold text-primary leading-tight">
                             {visit.token_label.replace(/^T-/, "")}
                           </div>
@@ -706,22 +706,22 @@ export function PatientQueue({
                           </div>
                         </TableCell>
                         <TableCell
-                          className={
+                          className={`!overflow-visible !whitespace-normal ${
                             visit.status === "cancelled"
                               ? "text-muted-foreground line-through"
                               : "font-medium"
-                          }
+                          }`}
                         >
                           {visit.patient_name}
                         </TableCell>
-                        <TableCell>{visit.patient_age ?? "-"}</TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="!overflow-visible !whitespace-nowrap">{visit.patient_age ?? "-"}</TableCell>
+                        <TableCell className="text-muted-foreground !whitespace-nowrap">
                           {visit.patient_contact || "-"}
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="text-muted-foreground !overflow-visible !whitespace-normal">
                           {visit.reason_for_visit || "-"}
                         </TableCell>
-                        <TableCell className="overflow-visible">
+                        <TableCell className="!overflow-visible !whitespace-nowrap">
                           {userRole === "doctor" && label === "Today" ? (
                             <DropdownMenu
                               open={statusDropdownOpen === visit.id}
@@ -730,10 +730,10 @@ export function PatientQueue({
                               }
                             >
                               <DropdownMenuTrigger asChild>
-                                <button className="inline-flex items-center gap-1.5 focus:outline-none group">
-                                  <span className={`size-2 rounded-full ${STATUS_CONFIG[visit.status]?.dot}`} />
-                                  <span className="text-sm font-medium capitalize">{visit.status}</span>
-                                  <ChevronDownIcon className="size-3 text-muted-foreground group-hover:text-foreground transition-colors" />
+                                <button className="inline-flex items-center gap-1.5 focus:outline-none group" title={STATUS_CONFIG[visit.status]?.label}>
+                                  <span className={`size-2 shrink-0 rounded-full ${STATUS_CONFIG[visit.status]?.dot}`} />
+                                  <span className="hidden @3xl:inline text-sm font-medium capitalize">{visit.status}</span>
+                                  <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="start" className="w-44">
@@ -788,13 +788,13 @@ export function PatientQueue({
                               </DropdownMenuContent>
                             </DropdownMenu>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5">
-                              <span className={`size-2 rounded-full ${STATUS_CONFIG[visit.status]?.dot ?? "bg-muted-foreground"}`} />
-                              <span className="text-sm capitalize">{visit.status}</span>
+                            <span className="inline-flex items-center gap-1.5" title={STATUS_CONFIG[visit.status]?.label}>
+                              <span className={`size-2 shrink-0 rounded-full ${STATUS_CONFIG[visit.status]?.dot ?? "bg-muted-foreground"}`} />
+                              <span className="hidden @3xl:inline text-sm capitalize">{visit.status}</span>
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="overflow-visible">
+                        <TableCell className="!overflow-visible !whitespace-nowrap">
                           <div className="flex gap-1 items-center justify-end">
                             {userRole === "doctor" ? (
                               visit.status === "cancelled" ? null : label ===
