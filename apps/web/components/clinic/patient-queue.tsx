@@ -131,9 +131,9 @@ function getStatusVariant(
     case "waiting":
       return "outline"
     case "called":
-      return "secondary"
-    case "checked":
       return "default"
+    case "checked":
+      return "secondary"
     case "cancelled":
       return "destructive"
     default:
@@ -756,7 +756,7 @@ export function PatientQueue({
                                   <ClockIcon />
                                 </Button>
                               )
-                            ) : label === "Today" ? (
+                            ) : label === "Today" && visit.status !== "checked" ? (
                               <>
                                 <Button
                                   variant="secondary"

@@ -300,7 +300,7 @@ export function DoctorOverview({ doctorName, stats }: DoctorOverviewProps) {
                   </div>
                   <Badge
                     variant={
-                      patient.status === "called" ? "secondary" : "outline"
+                      patient.status === "called" ? "default" : "outline"
                     }
                     className="shrink-0"
                   >
