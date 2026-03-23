@@ -251,12 +251,11 @@ function AddClinicDialog({
 }) {
   const [newName, setNewName] = useState("")
   const [newSlug, setNewSlug] = useState("")
-  const [drName, setDrName] = useState("")
-  const [drEmail, setDrEmail] = useState("")
-  const [drPw, setDrPw] = useState("")
-  const [recName, setRecName] = useState("")
-  const [recEmail, setRecEmail] = useState("")
-  const [recPw, setRecPw] = useState("")
+  const [adminName, setAdminName] = useState("")
+  const [adminEmail, setAdminEmail] = useState("")
+  const [adminPw, setAdminPw] = useState("")
+  const [maxDoctors, setMaxDoctors] = useState("5")
+  const [maxReceptionists, setMaxReceptionists] = useState("5")
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
 
@@ -267,12 +266,11 @@ function AddClinicDialog({
       const result = await addClinic({
         name: newName,
         slug: newSlug,
-        doctorFullName: drName,
-        doctorEmail: drEmail,
-        doctorPassword: drPw,
-        receptionistFullName: recName,
-        receptionistEmail: recEmail,
-        receptionistPassword: recPw,
+        adminFullName: adminName,
+        adminEmail: adminEmail,
+        adminPassword: adminPw,
+        maxDoctors: parseInt(maxDoctors) || 5,
+        maxReceptionists: parseInt(maxReceptionists) || 5,
       })
       if ("error" in result) {
         setError(result.error as string)
@@ -280,12 +278,11 @@ function AddClinicDialog({
         onOpenChange(false)
         setNewName("")
         setNewSlug("")
-        setDrName("")
-        setDrEmail("")
-        setDrPw("")
-        setRecName("")
-        setRecEmail("")
-        setRecPw("")
+        setAdminName("")
+        setAdminEmail("")
+        setAdminPw("")
+        setMaxDoctors("5")
+        setMaxReceptionists("5")
         onSuccess()
       }
     })
@@ -326,57 +323,54 @@ function AddClinicDialog({
             />
           </div>
           <p className="pt-2 text-xs font-semibold text-muted-foreground">
-            Doctor Account
+            Clinic Admin Account
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              value={drName}
-              onChange={(e) => setDrName(e.target.value)}
-              required
-              placeholder="Full name"
-            />
-            <Input
-              value={drEmail}
-              onChange={(e) => setDrEmail(e.target.value)}
-              required
-              type="email"
-              placeholder="Email"
-            />
-          </div>
           <Input
-            value={drPw}
-            onChange={(e) => setDrPw(e.target.value)}
+            value={adminName}
+            onChange={(e) => setAdminName(e.target.value)}
+            required
+            placeholder="Admin full name"
+          />
+          <Input
+            value={adminEmail}
+            onChange={(e) => setAdminEmail(e.target.value)}
+            required
+            type="email"
+            placeholder="Admin email"
+          />
+          <Input
+            value={adminPw}
+            onChange={(e) => setAdminPw(e.target.value)}
             required
             type="password"
             placeholder="Password (min 8)"
             minLength={8}
           />
           <p className="pt-2 text-xs font-semibold text-muted-foreground">
-            Receptionist Account
+            User Limits
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <Input
-              value={recName}
-              onChange={(e) => setRecName(e.target.value)}
-              required
-              placeholder="Full name"
-            />
-            <Input
-              value={recEmail}
-              onChange={(e) => setRecEmail(e.target.value)}
-              required
-              type="email"
-              placeholder="Email"
-            />
+            <div className="space-y-1">
+              <Label className="text-xs">Max Doctors</Label>
+              <Input
+                type="number"
+                min="1"
+                max="50"
+                value={maxDoctors}
+                onChange={(e) => setMaxDoctors(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Max Receptionists</Label>
+              <Input
+                type="number"
+                min="1"
+                max="50"
+                value={maxReceptionists}
+                onChange={(e) => setMaxReceptionists(e.target.value)}
+              />
+            </div>
           </div>
-          <Input
-            value={recPw}
-            onChange={(e) => setRecPw(e.target.value)}
-            required
-            type="password"
-            placeholder="Password (min 8)"
-            minLength={8}
-          />
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>

@@ -23,6 +23,8 @@ import { ContactLookup } from "@/components/clinic/contact-lookup"
 import type { PatientMatch } from "@/components/clinic/contact-lookup"
 import { Loader2Icon, UserPlusIcon, CheckCircleIcon, AlertCircleIcon } from "lucide-react"
 
+type AllocatedDoctor = { id: string; full_name: string; specialization: string | null }
+
 interface PatientFormProps {
   clinicSlug: string
   onSuccess?: () => void
@@ -33,14 +35,17 @@ interface PatientFormProps {
     contact: string
     address: string
   }
+  /** For receptionists with multiple allocated doctors — show a doctor picker. */
+  allocatedDoctors?: AllocatedDoctor[]
 }
 
-export function PatientForm({ clinicSlug, onSuccess, prefill }: PatientFormProps) {
+export function PatientForm({ clinicSlug, onSuccess, prefill, allocatedDoctors }: PatientFormProps) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const [contact, setContact] = useState(prefill?.contact ?? "")
   const [gender, setGender] = useState(prefill?.gender ?? "")
+  const [doctorId, setDoctorId] = useState(allocatedDoctors?.length === 1 ? allocatedDoctors[0]!.id : "")
   const nameRef = useRef<HTMLInputElement>(null)
   const ageRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
@@ -64,6 +69,7 @@ export function PatientForm({ clinicSlug, onSuccess, prefill }: PatientFormProps
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     formData.set("gender", gender)
+    if (doctorId) formData.set("doctorId", doctorId)
 
     startTransition(async () => {
       setError("")
@@ -86,6 +92,7 @@ export function PatientForm({ clinicSlug, onSuccess, prefill }: PatientFormProps
     formRef.current?.reset()
     setContact("")
     setGender("")
+    if (allocatedDoctors?.length !== 1) setDoctorId("")
     setError("")
     setSuccess(false)
   }
@@ -100,6 +107,23 @@ export function PatientForm({ clinicSlug, onSuccess, prefill }: PatientFormProps
       </CardHeader>
       <CardContent>
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+          {allocatedDoctors && allocatedDoctors.length > 1 && (
+            <div className="space-y-2">
+              <Label>Doctor</Label>
+              <Select value={doctorId} onValueChange={setDoctorId} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select doctor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allocatedDoctors.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.full_name}{d.specialization ? ` (${d.specialization})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="contact">Contact Number</Label>
             <ContactLookup

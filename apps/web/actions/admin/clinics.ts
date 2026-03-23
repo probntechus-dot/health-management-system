@@ -23,19 +23,20 @@ export type ClinicRow = {
 export type AddClinicInput = {
   name: string
   slug: string
-  doctorFullName: string
-  doctorEmail: string
-  doctorPassword: string
-  receptionistFullName: string
-  receptionistEmail: string
-  receptionistPassword: string
+  maxDoctors?: number
+  maxReceptionists?: number
+  adminFullName: string
+  adminEmail: string
+  adminPassword: string
 }
 
 export type ClinicUserRow = {
   id: string
   full_name: string
   email: string
-  role: "doctor" | "receptionist"
+  role: "doctor" | "receptionist" | "clinic_admin"
+  specialization: string | null
+  credentials: string | null
   is_active: boolean
 }
 
@@ -82,16 +83,7 @@ export async function listClinics(): Promise<ClinicRow[]> {
 export async function addClinic(input: AddClinicInput) {
   await requireAdmin()
 
-  const {
-    name,
-    slug,
-    doctorFullName,
-    doctorEmail,
-    doctorPassword,
-    receptionistFullName,
-    receptionistEmail,
-    receptionistPassword,
-  } = input
+  const { name, slug, adminFullName, adminEmail, adminPassword, maxDoctors = 5, maxReceptionists = 5 } = input
 
   if (!/^[a-z0-9_]+$/.test(slug))
     return { error: "Slug must be lowercase letters, numbers, and underscores only" }
@@ -99,34 +91,29 @@ export async function addClinic(input: AddClinicInput) {
     return { error: "Slug must be 50 characters or fewer" }
 
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRe.test(doctorEmail))
-    return { error: "Doctor email is not a valid email address" }
-  if (!emailRe.test(receptionistEmail))
-    return { error: "Receptionist email is not a valid email address" }
-  if (doctorPassword.length < 8)
-    return { error: "Doctor password must be at least 8 characters" }
-  if (receptionistPassword.length < 8)
-    return { error: "Receptionist password must be at least 8 characters" }
+  if (!emailRe.test(adminEmail))
+    return { error: "Admin email is not a valid email address" }
+  if (adminPassword.length < 8)
+    return { error: "Admin password must be at least 8 characters" }
 
   const existing = await adminPool<{ id: string }[]>`
     SELECT id FROM clinics WHERE slug = ${slug} LIMIT 1
   `
   if (existing.length > 0) return { error: `Slug ${slug} is already taken` }
 
-  const doctorHash = await hash(doctorPassword, 12)
-  const receptionistHash = await hash(receptionistPassword, 12)
+  const adminHash = await hash(adminPassword, 12)
 
   try {
     const clinic = await adminPool<{ id: string }[]>`
-      INSERT INTO clinics (slug, name, status) VALUES (${slug}, ${name}, 'active') RETURNING id
+      INSERT INTO clinics (slug, name, status, max_doctors, max_receptionists)
+      VALUES (${slug}, ${name}, 'active', ${maxDoctors}, ${maxReceptionists})
+      RETURNING id
     `
     const clinicId = clinic[0]!.id
 
     await adminPool`
       INSERT INTO clinic_users (clinic_id, email, password_hash, role, full_name)
-      VALUES
-        (${clinicId}, ${doctorEmail},       ${doctorHash},       'doctor',       ${doctorFullName}),
-        (${clinicId}, ${receptionistEmail}, ${receptionistHash}, 'receptionist', ${receptionistFullName})
+      VALUES (${clinicId}, ${adminEmail}, ${adminHash}, 'clinic_admin', ${adminFullName})
     `
     await createClinicSchema(slug, adminPool)
 
@@ -214,10 +201,12 @@ export async function listClinicUsers(
 ): Promise<ClinicUserRow[]> {
   await requireAdmin()
   const rows = await adminPool<ClinicUserRow[]>`
-    SELECT id, full_name, email, role, is_active
+    SELECT id, full_name, email, role, specialization, credentials, is_active
     FROM clinic_users
     WHERE clinic_id = ${clinicId}
-    ORDER BY role DESC
+    ORDER BY
+      CASE role WHEN 'clinic_admin' THEN 0 WHEN 'doctor' THEN 1 WHEN 'receptionist' THEN 2 END,
+      full_name
   `
   return rows
 }

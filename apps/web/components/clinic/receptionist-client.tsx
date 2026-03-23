@@ -12,7 +12,15 @@ type Prefill = {
   address: string
 }
 
-export function ReceptionistClient({ clinicSlug }: { clinicSlug: string }) {
+type AllocatedDoctor = { id: string; full_name: string; specialization: string | null }
+
+export function ReceptionistClient({
+  clinicSlug,
+  allocatedDoctors,
+}: {
+  clinicSlug: string
+  allocatedDoctors: AllocatedDoctor[]
+}) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [prefill, setPrefill] = useState<Prefill | undefined>()
 
@@ -27,6 +35,7 @@ export function ReceptionistClient({ clinicSlug }: { clinicSlug: string }) {
         <PatientForm
           clinicSlug={clinicSlug}
           prefill={prefill}
+          allocatedDoctors={allocatedDoctors}
           onSuccess={() => {
             setRefreshKey((k) => k + 1)
             setPrefill(undefined)

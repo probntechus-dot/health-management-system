@@ -166,6 +166,7 @@ export async function getPrescriptionsByPatient(patientId: string) {
       FROM prescriptions pr
       JOIN visits v ON v.id = pr.visit_id
       WHERE v.patient_id = ${patientId}
+        AND v.doctor_id = ${session.userId}
       ORDER BY pr.created_at DESC
       LIMIT 100
     `
