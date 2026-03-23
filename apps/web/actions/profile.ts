@@ -1,22 +1,8 @@
 'use server'
 
-import { cookies } from 'next/headers'
 import { compare, hash } from 'bcryptjs'
 import { appPool } from '@/lib/db/index'
-import { requireAuth, type Session } from './auth'
-
-const SESSION_COOKIE = 'clinic_session'
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function writeSession(session: Session) {
-  const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE, JSON.stringify(session), {
-    httpOnly: true,
-    path:     '/',
-    maxAge:   60 * 60 * 8,
-  })
-}
+import { requireAuth, writeSessionCookies } from '@/lib/auth'
 
 // ── Profile actions ───────────────────────────────────────────────────────────
 
@@ -29,7 +15,7 @@ export async function updateProfileName(fullName: string): Promise<{ success: tr
 
   try {
     await appPool`UPDATE clinic_users SET full_name = ${fullName} WHERE id = ${session.userId}`
-    await writeSession({ ...session, fullName })
+    await writeSessionCookies({ ...session, fullName })
     return { success: true }
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Failed to update name' }
@@ -46,7 +32,7 @@ export async function updateSpecialization(specialization: string): Promise<{ su
     await appPool`
       UPDATE clinic_users SET specialization = ${specialization || null} WHERE id = ${session.userId}
     `
-    await writeSession({ ...session, specialization: specialization || null })
+    await writeSessionCookies({ ...session, specialization: specialization || null })
     return { success: true }
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Failed to update specialization' }

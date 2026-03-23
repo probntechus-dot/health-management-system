@@ -1,4 +1,4 @@
-import { requireRole } from "@/actions/auth"
+import { requireRole } from "@/lib/auth"
 import { DoctorPatientsClient } from "@/components/clinic/doctor-patients-client"
 
 export default async function DoctorPatientsPage() {

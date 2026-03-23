@@ -1,7 +1,7 @@
 'use server'
 
 import { headers } from 'next/headers'
-import { requireAuth } from './auth'
+import { requireAuth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { updateTag } from 'next/cache'
 import { fetchVisits, findOrCreatePatient, insertVisit, patchVisitStatus } from '@/lib/data/patients'

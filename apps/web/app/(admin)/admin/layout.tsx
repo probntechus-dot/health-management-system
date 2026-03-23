@@ -1,4 +1,3 @@
-import { cookies } from "next/headers"
 import { checkAdminAuth } from "@/actions/admin/auth"
 import { redirect } from "next/navigation"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
@@ -16,17 +15,14 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [isAdmin, cookieStore] = await Promise.all([checkAdminAuth(), cookies()])
+  const isAdmin = await checkAdminAuth()
 
   if (!isAdmin) {
     redirect("/admin/login")
   }
 
-  const sidebarCookie = cookieStore.get("sidebar_state")
-  const defaultOpen = sidebarCookie ? sidebarCookie.value === "true" : false
-
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
+    <SidebarProvider>
       <AdminSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2">

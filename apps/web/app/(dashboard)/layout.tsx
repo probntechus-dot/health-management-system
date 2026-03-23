@@ -1,5 +1,3 @@
-import { cookies } from "next/headers"
-import { requireAuth } from "@/actions/auth"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
   SidebarProvider,
@@ -7,34 +5,17 @@ import {
   SidebarTrigger,
 } from "@workspace/ui/components/sidebar"
 import { Separator } from "@workspace/ui/components/separator"
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbPage,
-} from "@workspace/ui/components/breadcrumb"
 import { Toaster } from "@workspace/ui/components/sonner"
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb"
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [session, cookieStore] = await Promise.all([requireAuth(), cookies()])
-  const sidebarCookie = cookieStore.get("sidebar_state")
-  const defaultOpen = sidebarCookie ? sidebarCookie.value === "true" : false
-
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
-      <AppSidebar
-        user={{
-          fullName: session.fullName,
-          email: session.email,
-          role: session.role,
-          specialization: session.specialization,
-        }}
-      />
+    <SidebarProvider>
+      <AppSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2">
           <div className="flex items-center gap-2 px-4">

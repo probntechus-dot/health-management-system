@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 import { getClinicEmitter, QUEUE_EVENT } from '@/lib/events'
 import type { QueueEvent } from '@/lib/events'
-import type { Session } from '@/actions/auth'
+import type { Session } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 

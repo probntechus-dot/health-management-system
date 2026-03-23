@@ -1,21 +1,12 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { cookies, headers } from 'next/headers'
+import { headers } from 'next/headers'
 import { compare } from 'bcryptjs'
 import { appPool } from '@/lib/db/index'
 import { checkRateLimit } from '@/lib/rate-limit'
-
-const SESSION_COOKIE = 'clinic_session'
-
-export type Session = {
-  userId:         string
-  email:          string
-  role:           'doctor' | 'receptionist'
-  fullName:       string
-  clinicSlug:     string
-  specialization: string | null
-}
+import { writeSessionCookies, clearSessionCookies } from '@/lib/auth'
+import type { Session } from '@/lib/auth'
 
 export async function login(formData: FormData) {
   const email    = formData.get('email')    as string
@@ -84,45 +75,11 @@ export async function login(formData: FormData) {
     specialization: user.specialization ?? null,
   }
 
-  const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE, JSON.stringify(session), {
-    httpOnly: true,
-    path:     '/',
-    maxAge:   60 * 60 * 8,
-  })
-
+  await writeSessionCookies(session)
   redirect(user.role === 'doctor' ? '/doctor' : '/receptionist/patients')
 }
 
 export async function logout() {
-  const cookieStore = await cookies()
-  cookieStore.delete(SESSION_COOKIE)
+  await clearSessionCookies()
   redirect('/login')
-}
-
-export async function getSession(): Promise<Session | null> {
-  const cookieStore = await cookies()
-  const raw = cookieStore.get(SESSION_COOKIE)?.value
-  if (!raw) return null
-
-  try {
-    const parsed = JSON.parse(raw)
-    // Reconstruct to backfill specialization for sessions created before the field existed
-    const session: Session = { specialization: null, ...parsed }
-    return session
-  } catch {
-    return null
-  }
-}
-
-export async function requireAuth(): Promise<Session> {
-  const session = await getSession()
-  if (!session) redirect('/login')
-  return session
-}
-
-export async function requireRole(allowedRoles: Session['role'][]): Promise<Session> {
-  const session = await requireAuth()
-  if (!allowedRoles.includes(session.role)) redirect('/login')
-  return session
 }

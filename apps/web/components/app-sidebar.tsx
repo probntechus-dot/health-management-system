@@ -1,6 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import {
   Sidebar,
@@ -29,7 +30,6 @@ import {
 } from "@workspace/ui/components/avatar"
 import {
   StethoscopeIcon,
-  UsersIcon,
   SettingsIcon,
   UserPlusIcon,
   LayoutDashboardIcon,
@@ -40,6 +40,8 @@ import {
   LogOutIcon,
 } from "lucide-react"
 import { logout } from "@/actions/auth"
+import { SESSION_UI_COOKIE } from "@/lib/auth-shared"
+import type { SessionUI } from "@/lib/auth-shared"
 
 type NavItem = {
   title: string
@@ -74,6 +76,19 @@ const NAV_CONFIG: Record<string, { label: string; items: NavItem[] }> = {
   },
 }
 
+function readSessionUI(): SessionUI | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(
+    new RegExp(`(?:^|;\\s*)${SESSION_UI_COOKIE}=([^;]*)`)
+  )
+  if (!match) return null
+  try {
+    return JSON.parse(decodeURIComponent(match[1]!))
+  } catch {
+    return null
+  }
+}
+
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -84,23 +99,24 @@ function getInitials(name: string): string {
     .toUpperCase()
 }
 
-type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
-  user: {
-    fullName: string
-    email: string
-    role: string
-    specialization?: string | null
-  }
-}
-
-export function AppSidebar({ user, ...props }: AppSidebarProps) {
+export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { isMobile, setOpenMobile } = useSidebar()
-  const nav = NAV_CONFIG[user.role] ?? NAV_CONFIG["receptionist"]!
+  const [user, setUser] = useState<SessionUI | null>(readSessionUI)
+  const prevPathname = useRef(pathname)
 
-  const closeMobileSidebar = () => {
-    if (isMobile) setOpenMobile(false)
-  }
+  // Re-read cookie when pathname changes (covers profile update → navigate back)
+  useEffect(() => {
+    if (prevPathname.current !== pathname) {
+      prevPathname.current = pathname
+      if (isMobile) setOpenMobile(false)
+      setUser(readSessionUI())
+    }
+  }, [pathname, isMobile, setOpenMobile])
+
+  const nav = NAV_CONFIG[user?.role ?? "receptionist"] ?? NAV_CONFIG["receptionist"]!
+  const displayName = user?.fullName ?? ""
+  const displayEmail = user?.email ?? ""
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -108,13 +124,13 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/" onClick={closeMobileSidebar}>
+              <Link href="/">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <StethoscopeIcon className="size-4" />
                 </div>
                 <div className="grid flex-1 text-start text-sm leading-tight">
                   <span className="truncate font-medium">Clinic Management</span>
-                  <span className="truncate text-xs capitalize">{user.role}</span>
+                  <span className="truncate text-xs capitalize">{user?.role ?? ""}</span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -138,7 +154,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                     isActive={isActive}
                     tooltip={item.title}
                   >
-                    <Link href={item.url} onClick={closeMobileSidebar}>
+                    <Link href={item.url}>
                       {item.icon}
                       <span>{item.title}</span>
                     </Link>
@@ -161,12 +177,12 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
                     <AvatarFallback className="rounded-lg">
-                      {getInitials(user.fullName)}
+                      {displayName ? getInitials(displayName) : ""}
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-start text-sm leading-tight">
-                    <span className="truncate font-medium">{user.fullName}</span>
-                    <span className="truncate text-xs">{user.email}</span>
+                    <span className="truncate font-medium">{displayName}</span>
+                    <span className="truncate text-xs">{displayEmail}</span>
                   </div>
                   <ChevronsUpDownIcon className="ms-auto size-4" />
                 </SidebarMenuButton>
@@ -181,18 +197,18 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                   <div className="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
                     <Avatar className="h-8 w-8 rounded-lg">
                       <AvatarFallback className="rounded-lg">
-                        {getInitials(user.fullName)}
+                        {displayName ? getInitials(displayName) : ""}
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-start text-sm leading-tight">
-                      <span className="truncate font-medium">{user.fullName}</span>
-                      <span className="truncate text-xs">{user.email}</span>
+                      <span className="truncate font-medium">{displayName}</span>
+                      <span className="truncate text-xs">{displayEmail}</span>
                     </div>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/settings" onClick={closeMobileSidebar}>
+                  <Link href="/settings">
                     <SettingsIcon />
                     Settings
                   </Link>

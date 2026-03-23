@@ -1,6 +1,6 @@
 'use server'
 
-import { requireAuth, requireRole } from './auth'
+import { requireAuth, requireRole } from '@/lib/auth'
 import { updateVisitStatus } from './patients'
 import { revalidatePath } from 'next/cache'
 import { updateTag } from 'next/cache'

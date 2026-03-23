@@ -1,4 +1,4 @@
-import { requireRole } from "@/actions/auth"
+import { requireRole } from "@/lib/auth"
 import { fetchDashboardStats } from "@/lib/data/dashboard"
 import { DoctorOverview } from "@/components/clinic/doctor-overview"
 

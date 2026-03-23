@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { getSession } from "@/actions/auth"
+import { getSession } from "@/lib/auth"
 import Navbar from "@/components/marketing/navbar"
 import Hero from "@/components/marketing/hero"
 import Stats from "@/components/marketing/stats"

@@ -53,7 +53,7 @@ function useSidebar() {
 }
 
 function SidebarProvider({
-  defaultOpen = true,
+  defaultOpen,
   open: openProp,
   onOpenChange: setOpenProp,
   className,
@@ -70,7 +70,15 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen)
+  // When no defaultOpen is provided, read from the sidebar_state cookie client-side.
+  const [_open, _setOpen] = React.useState(() => {
+    if (defaultOpen !== undefined) return defaultOpen
+    if (typeof document !== 'undefined') {
+      const match = document.cookie.match(/(?:^|;\s*)sidebar_state=([^;]*)/)
+      if (match) return match[1] === 'true'
+    }
+    return true
+  })
   const open = openProp ?? _open
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {

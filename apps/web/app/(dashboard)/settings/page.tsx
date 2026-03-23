@@ -1,4 +1,4 @@
-import { requireAuth } from "@/actions/auth"
+import { requireAuth } from "@/lib/auth"
 import { SettingsClient } from "@/components/clinic/settings-client"
 
 export default async function SettingsPage() {
