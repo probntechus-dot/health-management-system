@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, Component, ErrorInfo, ReactNode } from "react"
+import { useState, useRef, useEffect, Component, ErrorInfo, ReactNode } from "react"
 import type { Visit, Prescription } from "@/lib/types"
 import { visitsCache, getCachedPrescriptions } from "@/lib/cache"
 import { PatientQueue } from "@/components/clinic/patient-queue"
@@ -10,9 +10,27 @@ import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import {
+  Dialog,
+  DialogContent,
+} from "@workspace/ui/components/dialog"
+import {
   FileTextIcon,
   AlertCircleIcon,
 } from "lucide-react"
+
+const XL_BREAKPOINT = 1280
+
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState<boolean | undefined>(undefined)
+  useEffect(() => {
+    const mql = window.matchMedia(`(min-width: ${XL_BREAKPOINT}px)`)
+    const onChange = () => setIsDesktop(mql.matches)
+    mql.addEventListener("change", onChange)
+    setIsDesktop(mql.matches)
+    return () => mql.removeEventListener("change", onChange)
+  }, [])
+  return isDesktop ?? true // default to desktop to avoid flash
+}
 
 // Error Boundary
 interface ErrorBoundaryProps {
@@ -172,10 +190,60 @@ export function DoctorDashboard({
     setModalVisit(visit)
   }
 
+  const isDesktop = useIsDesktop()
+
+  const closeModal = () => {
+    setModalVisit(null)
+    setEditRx(null)
+    setShowHistory(false)
+  }
+
+  const prescriptionContent = modalVisit ? (
+    showHistory || !isToday(modalVisit.created_at) ? (
+      <PrescriptionErrorBoundary
+        onReset={closeModal}
+      >
+        <PrescriptionHistory
+          key={`history-${modalVisit.id}`}
+          clinicSlug={clinicSlug}
+          visit={modalVisit}
+          onClose={() => {
+            if (showHistory && isToday(modalVisit.created_at)) {
+              setShowHistory(false)
+            } else {
+              closeModal()
+            }
+          }}
+        />
+      </PrescriptionErrorBoundary>
+    ) : (
+      <PrescriptionErrorBoundary
+        onReset={closeModal}
+      >
+        <PrescriptionModal
+          key={`rx-${modalVisit.id}-${modalKey}`}
+          clinicSlug={clinicSlug}
+          visit={modalVisit}
+          onSave={handleSave}
+          onChecked={handleChecked}
+          onClose={closeModal}
+          onShowHistory={() => setShowHistory(true)}
+          editPrescription={editRx ?? undefined}
+          doctorName={doctorName}
+          doctorSpecialty={doctorSpecialty}
+          doctorCredentials={doctorCredentials}
+          clinicPhone={clinicPhone}
+          clinicAddress={clinicAddress}
+          clinicWebsite={clinicWebsite}
+        />
+      </PrescriptionErrorBoundary>
+    )
+  ) : null
+
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 h-full min-h-0">
-      {/* Left — Patient queue */}
-      <div className="overflow-y-auto min-h-0 pb-8">
+    <div className={isDesktop ? "grid grid-cols-2 gap-4 h-full min-h-0" : "h-full min-h-0"}>
+      {/* Patient queue — always full width on small, left column on desktop */}
+      <div className="overflow-y-auto min-h-0 pb-8 h-full">
         <PatientQueue
           clinicSlug={clinicSlug}
           userRole="doctor"
@@ -184,75 +252,41 @@ export function DoctorDashboard({
         />
       </div>
 
-      {/* Right — Prescription area */}
-      <div className="min-h-0 flex flex-col overflow-y-auto pb-8">
-        {!modalVisit ? (
-          <Card>
-            <CardContent className="py-12">
-              <div className="text-center">
-                <div className="mx-auto mb-4 size-20 rounded-2xl bg-muted flex items-center justify-center">
-                  <FileTextIcon className="size-8 text-muted-foreground" />
+      {isDesktop ? (
+        /* Desktop: inline panel */
+        <div className="min-h-0 flex flex-col overflow-y-auto pb-8">
+          {prescriptionContent ?? (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center">
+                  <div className="mx-auto mb-4 size-20 rounded-2xl bg-muted flex items-center justify-center">
+                    <FileTextIcon className="size-8 text-muted-foreground" />
+                  </div>
+                  <p className="text-base font-semibold text-muted-foreground mb-2">
+                    Select a Patient
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Select a patient from the queue to open their prescription
+                    pad.
+                  </p>
                 </div>
-                <p className="text-base font-semibold text-muted-foreground mb-2">
-                  Select a Patient
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Select a patient from the queue to open their prescription
-                  pad.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : showHistory || !isToday(modalVisit.created_at) ? (
-          <PrescriptionErrorBoundary
-            onReset={() => {
-              setModalVisit(null)
-              setShowHistory(false)
-            }}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      ) : (
+        /* Small screens: dialog overlay */
+        <Dialog open={!!modalVisit} onOpenChange={(open) => { if (!open) closeModal() }}>
+          <DialogContent
+            showCloseButton={false}
+            className="h-[90dvh] max-h-[90dvh] w-[95vw] max-w-2xl flex flex-col overflow-hidden p-0"
           >
-            <PrescriptionHistory
-              key={`history-${modalVisit.id}`}
-              clinicSlug={clinicSlug}
-              visit={modalVisit}
-              onClose={() => {
-                if (showHistory && isToday(modalVisit.created_at)) {
-                  setShowHistory(false)
-                } else {
-                  setModalVisit(null)
-                  setShowHistory(false)
-                }
-              }}
-            />
-          </PrescriptionErrorBoundary>
-        ) : (
-          <PrescriptionErrorBoundary
-            onReset={() => {
-              setModalVisit(null)
-              setEditRx(null)
-            }}
-          >
-            <PrescriptionModal
-              key={`rx-${modalVisit.id}-${modalKey}`}
-              clinicSlug={clinicSlug}
-              visit={modalVisit}
-              onSave={handleSave}
-              onChecked={handleChecked}
-              onClose={() => {
-                setModalVisit(null)
-                setEditRx(null)
-              }}
-              onShowHistory={() => setShowHistory(true)}
-              editPrescription={editRx ?? undefined}
-              doctorName={doctorName}
-              doctorSpecialty={doctorSpecialty}
-              doctorCredentials={doctorCredentials}
-              clinicPhone={clinicPhone}
-              clinicAddress={clinicAddress}
-              clinicWebsite={clinicWebsite}
-            />
-          </PrescriptionErrorBoundary>
-        )}
-      </div>
+            <div className="flex-1 overflow-y-auto">
+              {prescriptionContent}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
