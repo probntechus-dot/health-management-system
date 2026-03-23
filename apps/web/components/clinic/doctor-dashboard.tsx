@@ -117,6 +117,7 @@ function isToday(dateStr: string): boolean {
 
 interface DoctorDashboardProps {
   clinicSlug: string
+  doctorId?: string
   doctorName?: string
   doctorSpecialty?: string
   doctorCredentials?: string
@@ -127,6 +128,7 @@ interface DoctorDashboardProps {
 
 export function DoctorDashboard({
   clinicSlug,
+  doctorId,
   doctorName,
   doctorSpecialty,
   doctorCredentials,
@@ -255,6 +257,7 @@ export function DoctorDashboard({
           userRole="doctor"
           onPatientSelect={handleSelectPatient}
           prescriptionVisitIds={rxVisitIds}
+          cacheScopeKey={doctorId ? `${clinicSlug}:${doctorId}` : clinicSlug}
         />
       </div>
 

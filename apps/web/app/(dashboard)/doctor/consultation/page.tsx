@@ -13,6 +13,7 @@ export default async function ConsultationPage() {
     <div className="flex-1 min-h-0 overflow-hidden">
       <DoctorDashboard
         clinicSlug={session.clinicSlug}
+        doctorId={session.userId}
         doctorName={session.fullName}
         doctorSpecialty={session.specialization ?? undefined}
         doctorCredentials={doctor.credentials ?? undefined}

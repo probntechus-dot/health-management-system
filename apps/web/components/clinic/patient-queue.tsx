@@ -93,6 +93,8 @@ interface PatientQueueProps {
   refreshKey?: number
   /** Visit IDs that have a saved prescription — drives edit vs add icon */
   prescriptionVisitIds?: Set<string>
+  /** Cache scope key — ensures doctor A's cached visits don't leak to doctor B */
+  cacheScopeKey?: string
 }
 
 function groupVisitsByDate(
@@ -190,8 +192,10 @@ export function PatientQueue({
   onReAdd,
   refreshKey,
   prescriptionVisitIds,
+  cacheScopeKey,
 }: PatientQueueProps) {
-  const cached = visitsCache.get(clinicSlug)
+  const scopeKey = cacheScopeKey ?? clinicSlug
+  const cached = visitsCache.get(scopeKey)
   const [patients, setPatients] = useState<Visit[]>(cached ?? [])
   const [filterStatus, setFilterStatus] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -230,8 +234,8 @@ export function PatientQueue({
   useEffect(() => {
     offsetRef.current = 0
     setHasMore(true)
-    if (visitsCache.get(clinicSlug) !== null && !refreshKey) {
-      offsetRef.current = visitsCache.get(clinicSlug)!.length
+    if (visitsCache.get(scopeKey) !== null && !refreshKey) {
+      offsetRef.current = visitsCache.get(scopeKey)!.length
       return
     }
     loadVisits()
@@ -307,7 +311,7 @@ export function PatientQueue({
   const loadVisits = async () => {
     try {
       const data = await getAllVisits(0)
-      visitsCache.set(clinicSlug, data)
+      visitsCache.set(scopeKey, data)
       setPatients(data)
       offsetRef.current = data.length
       setHasMore(data.length === PAGE_SIZE)
@@ -324,7 +328,7 @@ export function PatientQueue({
     setLoadMoreError(false)
     try {
       const data = await getAllVisits(offsetRef.current)
-      visitsCache.append(clinicSlug, data)
+      visitsCache.append(scopeKey, data)
       setPatients((prev) => [...prev, ...data])
       offsetRef.current += data.length
       setHasMore(data.length === PAGE_SIZE)

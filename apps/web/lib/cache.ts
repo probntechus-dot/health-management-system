@@ -28,22 +28,22 @@ export type PatientMatch = {
 // a session switch in the same tab automatically discards stale data.
 
 let visitsData: Visit[] | null = null
-let visitsClinicSlug: string | null = null
+let visitsScopeKey: string | null = null
 
 export const visitsCache = {
-  get(clinicSlug: string): Visit[] | null {
-    if (visitsClinicSlug !== clinicSlug) return null
+  get(scopeKey: string): Visit[] | null {
+    if (visitsScopeKey !== scopeKey) return null
     return visitsData
   },
 
-  set(clinicSlug: string, visits: Visit[]) {
-    visitsClinicSlug = clinicSlug
+  set(scopeKey: string, visits: Visit[]) {
+    visitsScopeKey = scopeKey
     visitsData = visits
   },
 
-  append(clinicSlug: string, visits: Visit[]) {
-    if (visitsClinicSlug !== clinicSlug) {
-      visitsClinicSlug = clinicSlug
+  append(scopeKey: string, visits: Visit[]) {
+    if (visitsScopeKey !== scopeKey) {
+      visitsScopeKey = scopeKey
       visitsData = visits
       return
     }
@@ -58,11 +58,11 @@ export const visitsCache = {
 
   invalidate() {
     visitsData = null
-    visitsClinicSlug = null
+    visitsScopeKey = null
   },
 
-  searchByContact(clinicSlug: string, query: string): PatientMatch[] {
-    if (!visitsData || visitsClinicSlug !== clinicSlug || query.length < 3) return []
+  searchByContact(scopeKey: string, query: string): PatientMatch[] {
+    if (!visitsData || visitsScopeKey !== scopeKey || query.length < 3) return []
     const q = query.toLowerCase()
     const seen = new Set<string>()
     const results: PatientMatch[] = []
