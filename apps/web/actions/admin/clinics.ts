@@ -4,6 +4,7 @@ import { hash } from "bcryptjs"
 import { adminPool } from "@/lib/db/index"
 import { createClinicSchema, dropClinicSchema } from "@/lib/db/provision"
 import { deleteClinicEmitter } from "@/lib/events"
+import { getErrorMessage } from "@/lib/errors"
 import { requireAdmin } from "./auth"
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -52,8 +53,12 @@ export async function runClinicsMigration() {
   `
   await adminPool`
     ALTER TABLE clinic_users
-      ADD COLUMN IF NOT EXISTS specialization TEXT
+      ADD COLUMN IF NOT EXISTS specialization    TEXT,
+      ADD COLUMN IF NOT EXISTS session_version   INTEGER NOT NULL DEFAULT 0
   `
+  // Ensure clinic_app has the required DML permissions on platform tables
+  await adminPool.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON clinic_users TO clinic_app`)
+  await adminPool.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON receptionist_doctors TO clinic_app`)
 }
 
 // ── Clinic CRUD ──────────────────────────────────────────────────────────────
@@ -119,13 +124,12 @@ export async function addClinic(input: AddClinicInput) {
 
     return { success: true }
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
     try {
       await adminPool`DELETE FROM clinics WHERE slug = ${slug}`
     } catch {
       /* best effort */
     }
-    return { error: `Failed to create clinic: ${msg}` }
+    return { error: getErrorMessage(error, 'Failed to create clinic') }
   }
 }
 
@@ -137,7 +141,7 @@ export async function pauseClinic(
     await adminPool`UPDATE clinics SET status = 'paused' WHERE id = ${id}`
     return { success: true }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) }
+    return { error: getErrorMessage(error) }
   }
 }
 
@@ -149,7 +153,7 @@ export async function resumeClinic(
     await adminPool`UPDATE clinics SET status = 'active' WHERE id = ${id}`
     return { success: true }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) }
+    return { error: getErrorMessage(error) }
   }
 }
 
@@ -166,8 +170,7 @@ export async function deleteClinic(id: string) {
     deleteClinicEmitter(slug)
     return { success: true }
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
-    return { error: `Failed to delete clinic: ${msg}` }
+    return { error: getErrorMessage(error, 'Failed to delete clinic') }
   }
 }
 
@@ -190,7 +193,7 @@ export async function setClinicPlan(
     `
     return { success: true }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) }
+    return { error: getErrorMessage(error) }
   }
 }
 
@@ -228,6 +231,6 @@ export async function updateClinicUser(
     }
     return { success: true }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) }
+    return { error: getErrorMessage(error) }
   }
 }

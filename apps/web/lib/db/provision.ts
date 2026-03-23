@@ -37,6 +37,10 @@ CREATE TABLE IF NOT EXISTS patients (
 );
 
 -- Visits — one row per appointment/check-in
+-- doctor_id references clinic_users.id in the platform schema.  A cross-schema FK
+-- is not used because the platform schema is shared.  Integrity is enforced at the
+-- application layer: doctors are soft-deleted (is_active = false) rather than
+-- hard-deleted, so visits always retain a valid doctor_id reference.
 CREATE TABLE IF NOT EXISTS visits (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   patient_id       UUID        NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
@@ -102,9 +106,15 @@ CREATE TRIGGER update_prescriptions_updated_at
   BEFORE UPDATE ON prescriptions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Token auto-assign: COUNT today's visits + 1
+-- Uses advisory lock keyed on the schema OID to serialise concurrent inserts
+-- within the same tenant, preventing duplicate token numbers.
 CREATE OR REPLACE FUNCTION assign_next_token()
 RETURNS TRIGGER AS $$
+DECLARE
+  schema_oid OID;
 BEGIN
+  SELECT oid INTO schema_oid FROM pg_namespace WHERE nspname = current_schema();
+  PERFORM pg_advisory_xact_lock(schema_oid::BIGINT);
   SELECT COUNT(*) + 1
   INTO NEW.token_number
   FROM visits

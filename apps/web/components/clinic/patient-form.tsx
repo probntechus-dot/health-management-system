@@ -155,7 +155,8 @@ export function PatientForm({ clinicSlug, onSuccess, prefill, allocatedDoctors }
                 id="age"
                 name="age"
                 type="number"
-                min="0"
+                min="1"
+                max="150"
                 required
                 placeholder="Years"
               />

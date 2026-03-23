@@ -2,7 +2,8 @@
 
 import { compare, hash } from 'bcryptjs'
 import { appPool } from '@/lib/db/index'
-import { requireAuth, writeSessionCookies } from '@/lib/auth'
+import { requireAuth, writeSessionCookies, invalidateUserSessions } from '@/lib/auth'
+import { getErrorMessage } from '@/lib/errors'
 
 // ── Profile actions ───────────────────────────────────────────────────────────
 
@@ -18,7 +19,7 @@ export async function updateProfileName(fullName: string): Promise<{ success: tr
     await writeSessionCookies({ ...session, fullName })
     return { success: true }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Failed to update name' }
+    return { error: getErrorMessage(error, 'Failed to update name') }
   }
 }
 
@@ -35,7 +36,7 @@ export async function updateSpecialization(specialization: string): Promise<{ su
     await writeSessionCookies({ ...session, specialization: specialization || null })
     return { success: true }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Failed to update specialization' }
+    return { error: getErrorMessage(error, 'Failed to update specialization') }
   }
 }
 
@@ -58,9 +59,12 @@ export async function updateProfilePassword(
 
   try {
     const newHash = await hash(newPassword, 12)
-    await appPool`UPDATE clinic_users SET password_hash = ${newHash} WHERE id = ${session.userId}`
+    await appPool`UPDATE clinic_users SET password_hash = ${newHash}, session_version = session_version + 1 WHERE id = ${session.userId}`
+    // Re-write our own session cookie with the new version so we stay logged in
+    const newVersion = session.sessionVersion + 1
+    await writeSessionCookies({ ...session, sessionVersion: newVersion })
     return { success: true }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Failed to update password' }
+    return { error: getErrorMessage(error, 'Failed to update password') }
   }
 }

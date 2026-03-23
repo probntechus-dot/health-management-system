@@ -28,16 +28,17 @@ export async function login(formData: FormData) {
   }
 
   const rows = await appPool<{
-    id:             string
-    email:          string
-    password_hash:  string
-    role:           'doctor' | 'receptionist' | 'clinic_admin'
-    full_name:      string
-    specialization: string | null
-    is_active:      boolean
-    clinic_id:      string
-    clinic_slug:    string
-    clinic_status:  string
+    id:              string
+    email:           string
+    password_hash:   string
+    role:            'doctor' | 'receptionist' | 'clinic_admin'
+    full_name:       string
+    specialization:  string | null
+    session_version: number
+    is_active:       boolean
+    clinic_id:       string
+    clinic_slug:     string
+    clinic_status:   string
   }[]>`
     SELECT
       cu.id,
@@ -46,13 +47,14 @@ export async function login(formData: FormData) {
       cu.role,
       cu.full_name,
       cu.specialization,
+      COALESCE(cu.session_version, 0) AS session_version,
       cu.is_active,
       cu.clinic_id,
       c.slug   AS clinic_slug,
       c.status AS clinic_status
     FROM clinic_users cu
     JOIN clinics c ON c.id = cu.clinic_id
-    WHERE cu.email = ${email}
+    WHERE cu.email = ${email.toLowerCase()}
     LIMIT 1
   `
 
@@ -74,6 +76,7 @@ export async function login(formData: FormData) {
     clinicId:       user.clinic_id,
     clinicSlug:     user.clinic_slug,
     specialization: user.specialization ?? null,
+    sessionVersion: user.session_version,
   }
 
   await writeSessionCookies(session)

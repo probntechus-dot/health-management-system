@@ -10,6 +10,8 @@ export type Session = {
   clinicId:       string
   clinicSlug:     string
   specialization: string | null
+  /** Monotonic counter bumped on every credential change; used for session invalidation. */
+  sessionVersion: number
 }
 
 /** UI-safe subset of session data (stored in a non-httpOnly cookie for client reading). */

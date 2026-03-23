@@ -23,16 +23,17 @@ CREATE TABLE IF NOT EXISTS clinics (
 
 -- All users across all clinics
 CREATE TABLE IF NOT EXISTS clinic_users (
-  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  clinic_id      UUID        NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
-  email          TEXT        NOT NULL UNIQUE,
-  password_hash  TEXT        NOT NULL,
-  role           TEXT        NOT NULL CHECK (role IN ('doctor', 'receptionist', 'clinic_admin')),
-  full_name      TEXT        NOT NULL,
-  specialization TEXT,
-  credentials    TEXT,
-  is_active      BOOLEAN     NOT NULL DEFAULT true,
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id       UUID        NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+  email           TEXT        NOT NULL UNIQUE,
+  password_hash   TEXT        NOT NULL,
+  role            TEXT        NOT NULL CHECK (role IN ('doctor', 'receptionist', 'clinic_admin')),
+  full_name       TEXT        NOT NULL,
+  specialization  TEXT,
+  credentials     TEXT,
+  is_active       BOOLEAN     NOT NULL DEFAULT true,
+  session_version INTEGER     NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_clinic_users_email     ON clinic_users(email);
@@ -48,7 +49,10 @@ CREATE TABLE IF NOT EXISTS receptionist_doctors (
 CREATE INDEX IF NOT EXISTS idx_rd_receptionist ON receptionist_doctors(receptionist_id);
 CREATE INDEX IF NOT EXISTS idx_rd_doctor       ON receptionist_doctors(doctor_id);
 
--- Grant clinic_app read access (DDL operations use adminPool)
-GRANT SELECT ON clinics              TO clinic_app;
-GRANT SELECT ON clinic_users         TO clinic_app;
-GRANT SELECT ON receptionist_doctors TO clinic_app;
+-- Grant clinic_app access (DDL operations use adminPool)
+-- SELECT on clinics is sufficient — admin actions use adminPool for clinic writes.
+-- clinic_users and receptionist_doctors need INSERT/UPDATE/DELETE for clinic_admin
+-- and profile actions that run via appPool.
+GRANT SELECT ON clinics TO clinic_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON clinic_users         TO clinic_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON receptionist_doctors TO clinic_app;

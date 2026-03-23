@@ -61,6 +61,11 @@ export async function createVisit(formData: FormData) {
     return { error: 'Age must be between 1 and 150' }
   }
 
+  // Max-length guards to prevent oversized payloads
+  if (full_name.length > 200) return { error: 'Name is too long (max 200 characters)' }
+  if (reason_for_visit.length > 1000) return { error: 'Reason for visit is too long (max 1000 characters)' }
+  if (address && address.length > 500) return { error: 'Address is too long (max 500 characters)' }
+
   const normalizedContact = normalizePhoneNumber(contact_number)
   if (!normalizedContact) {
     return { error: 'Contact number must be a valid Pakistan number (11 digits starting with 03, or 12 digits starting with 92)' }

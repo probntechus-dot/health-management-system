@@ -547,7 +547,8 @@ export function PatientQueue({
                 <Label>Age</Label>
                 <Input
                   type="number"
-                  min="0"
+                  min="1"
+                  max="150"
                   required
                   value={modalAge}
                   onChange={(e) => setModalAge(e.target.value)}

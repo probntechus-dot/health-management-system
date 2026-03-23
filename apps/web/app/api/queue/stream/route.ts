@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { getClinicEmitter, QUEUE_EVENT } from '@/lib/events'
+import { checkRateLimit } from '@/lib/rate-limit'
 import type { QueueEvent } from '@/lib/events'
 import type { Session } from '@/lib/auth'
 
@@ -15,12 +16,20 @@ export async function GET(request: NextRequest) {
   }
 
   let clinicSlug: string
+  let userId: string
   try {
-    const session = JSON.parse(raw) as { clinicSlug: string }
+    const session = JSON.parse(raw) as { clinicSlug: string; userId: string }
     clinicSlug = session.clinicSlug
+    userId = session.userId
     if (!clinicSlug) throw new Error('No clinicSlug in session')
   } catch {
     return new Response('Invalid session', { status: 401 })
+  }
+
+  // Rate limit SSE connections: max 5 per minute per user
+  const rl = checkRateLimit(`sse:${userId}`, 5, 60_000)
+  if (!rl.allowed) {
+    return new Response('Too many connections', { status: 429 })
   }
 
   const emitter = getClinicEmitter(clinicSlug)

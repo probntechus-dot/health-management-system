@@ -7,6 +7,7 @@ import { tenantSql } from '@/lib/db/tenant'
 import { PAGE_SIZE } from '@/lib/constants'
 import type { Visit, VisitStatus } from '@/lib/types'
 import { logger } from '@/lib/logger'
+import { getErrorMessage } from '@/lib/errors'
 
 // ── Row mapping ─────────────────────────────────────────────────────────────
 
@@ -103,8 +104,8 @@ export async function insertVisit(
     `
     return { data: rows[0] ?? null, error: null }
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error)
-    return { data: null, error: `DB error: ${msg}` }
+    logger.error('Error inserting visit', error)
+    return { data: null, error: getErrorMessage(error, 'Failed to create visit') }
   }
 }
 
@@ -145,7 +146,7 @@ export async function findOrCreatePatient(
     `
     return { patientId: rows[0]!.id, error: null }
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error)
-    return { patientId: null, error: `DB error: ${msg}` }
+    logger.error('Error finding/creating patient', error)
+    return { patientId: null, error: getErrorMessage(error, 'Failed to save patient record') }
   }
 }

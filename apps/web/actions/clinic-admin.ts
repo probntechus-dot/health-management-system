@@ -1,8 +1,10 @@
 'use server'
 
 import { hash } from 'bcryptjs'
+import type postgres from 'postgres'
 import { appPool } from '@/lib/db/index'
-import { requireRole } from '@/lib/auth'
+import { requireRole, invalidateUserSessions } from '@/lib/auth'
+import { getErrorMessage } from '@/lib/errors'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,36 +136,38 @@ export async function addUser(data: {
   const passwordHash = await hash(data.password, 12)
 
   try {
-    const rows = await appPool<{ id: string }[]>`
-      INSERT INTO clinic_users (clinic_id, email, password_hash, role, full_name, specialization, credentials)
-      VALUES (
-        ${session.clinicId},
-        ${data.email.toLowerCase()},
-        ${passwordHash},
-        ${data.role},
-        ${data.fullName.trim()},
-        ${data.specialization?.trim() || null},
-        ${data.credentials?.trim() || null}
-      )
-      RETURNING id
-    `
+    await appPool.begin(async (txRaw) => {
+      const tx = txRaw as unknown as postgres.Sql
+      const rows = await tx<{ id: string }[]>`
+        INSERT INTO clinic_users (clinic_id, email, password_hash, role, full_name, specialization, credentials)
+        VALUES (
+          ${session.clinicId},
+          ${data.email.toLowerCase()},
+          ${passwordHash},
+          ${data.role},
+          ${data.fullName.trim()},
+          ${data.specialization?.trim() || null},
+          ${data.credentials?.trim() || null}
+        )
+        RETURNING id
+      `
 
-    // Set receptionist allocations
-    if (data.role === 'receptionist' && data.allocatedDoctorIds?.length) {
-      const userId = rows[0]!.id
-      for (const doctorId of data.allocatedDoctorIds) {
-        await appPool`
-          INSERT INTO receptionist_doctors (receptionist_id, doctor_id)
-          VALUES (${userId}, ${doctorId})
-          ON CONFLICT DO NOTHING
-        `
+      // Set receptionist allocations inside the same transaction
+      if (data.role === 'receptionist' && data.allocatedDoctorIds?.length) {
+        const userId = rows[0]!.id
+        for (const doctorId of data.allocatedDoctorIds) {
+          await tx`
+            INSERT INTO receptionist_doctors (receptionist_id, doctor_id)
+            VALUES (${userId}, ${doctorId})
+            ON CONFLICT DO NOTHING
+          `
+        }
       }
-    }
+    })
 
     return { success: true }
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
-    return { error: `Failed to add user: ${msg}` }
+    return { error: getErrorMessage(error, 'Failed to add user') }
   }
 }
 
@@ -187,29 +191,40 @@ export async function updateUser(
   `
   if (!user || user.clinic_id !== session.clinicId) return { error: 'User not found' }
 
+  // Validate before touching the DB
+  if (data.email) {
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRe.test(data.email)) return { error: 'Invalid email' }
+    // Check email uniqueness
+    const existing = await appPool<{ id: string }[]>`
+      SELECT id FROM clinic_users WHERE email = ${data.email.toLowerCase()} AND id != ${userId} LIMIT 1
+    `
+    if (existing.length > 0) return { error: 'This email is already in use' }
+  }
+  if (data.newPassword && data.newPassword.length < 8) {
+    return { error: 'Password must be at least 8 characters' }
+  }
+
+  let passwordHash: string | null = null
+  if (data.newPassword) {
+    passwordHash = await hash(data.newPassword, 12)
+  }
+
   try {
-    if (data.fullName?.trim()) {
-      await appPool`UPDATE clinic_users SET full_name = ${data.fullName.trim()} WHERE id = ${userId}`
-    }
-    if (data.email) {
-      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRe.test(data.email)) return { error: 'Invalid email' }
-      await appPool`UPDATE clinic_users SET email = ${data.email.toLowerCase()} WHERE id = ${userId}`
-    }
-    if (data.specialization !== undefined) {
-      await appPool`UPDATE clinic_users SET specialization = ${data.specialization.trim() || null} WHERE id = ${userId}`
-    }
-    if (data.credentials !== undefined) {
-      await appPool`UPDATE clinic_users SET credentials = ${data.credentials.trim() || null} WHERE id = ${userId}`
-    }
-    if (data.newPassword) {
-      if (data.newPassword.length < 8) return { error: 'Password must be at least 8 characters' }
-      const passwordHash = await hash(data.newPassword, 12)
-      await appPool`UPDATE clinic_users SET password_hash = ${passwordHash} WHERE id = ${userId}`
-    }
+    // Single UPDATE query instead of multiple separate ones
+    await appPool`
+      UPDATE clinic_users SET
+        full_name      = COALESCE(${data.fullName?.trim() || null}, full_name),
+        email          = COALESCE(${data.email ? data.email.toLowerCase() : null}, email),
+        specialization = CASE WHEN ${data.specialization !== undefined} THEN ${data.specialization?.trim() || null} ELSE specialization END,
+        credentials    = CASE WHEN ${data.credentials !== undefined} THEN ${data.credentials?.trim() || null} ELSE credentials END,
+        password_hash  = COALESCE(${passwordHash}, password_hash),
+        session_version = CASE WHEN ${passwordHash !== null} THEN session_version + 1 ELSE session_version END
+      WHERE id = ${userId}
+    `
     return { success: true }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) }
+    return { error: getErrorMessage(error, 'Failed to update user') }
   }
 }
 
@@ -239,18 +254,21 @@ export async function setReceptionistDoctors(
       if (invalidIds.length > 0) return { error: 'One or more selected doctors are invalid' }
     }
 
-    // Clear existing and re-insert
-    await appPool`DELETE FROM receptionist_doctors WHERE receptionist_id = ${receptionistId}`
-    for (const doctorId of doctorIds) {
-      await appPool`
-        INSERT INTO receptionist_doctors (receptionist_id, doctor_id)
-        VALUES (${receptionistId}, ${doctorId})
-        ON CONFLICT DO NOTHING
-      `
-    }
+    // Clear existing and re-insert inside a single transaction
+    await appPool.begin(async (txRaw) => {
+      const tx = txRaw as unknown as postgres.Sql
+      await tx`DELETE FROM receptionist_doctors WHERE receptionist_id = ${receptionistId}`
+      for (const doctorId of doctorIds) {
+        await tx`
+          INSERT INTO receptionist_doctors (receptionist_id, doctor_id)
+          VALUES (${receptionistId}, ${doctorId})
+          ON CONFLICT DO NOTHING
+        `
+      }
+    })
     return { success: true }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) }
+    return { error: getErrorMessage(error, 'Failed to update doctor allocations') }
   }
 }
 
@@ -265,15 +283,30 @@ export async function toggleUserActive(
   // Can't deactivate yourself
   if (userId === session.userId) return { error: 'Cannot deactivate your own account' }
 
-  const [user] = await appPool<{ clinic_id: string }[]>`
-    SELECT clinic_id FROM clinic_users WHERE id = ${userId}
+  const [user] = await appPool<{ clinic_id: string; role: string }[]>`
+    SELECT clinic_id, role FROM clinic_users WHERE id = ${userId}
   `
   if (!user || user.clinic_id !== session.clinicId) return { error: 'User not found' }
 
+  // When reactivating, check limits to prevent bypass
+  if (isActive) {
+    const limits = await getClinicLimits()
+    if (user.role === 'doctor' && limits.doctor_count >= limits.max_doctors) {
+      return { error: `Cannot reactivate: doctor limit reached (${limits.max_doctors})` }
+    }
+    if (user.role === 'receptionist' && limits.receptionist_count >= limits.max_receptionists) {
+      return { error: `Cannot reactivate: receptionist limit reached (${limits.max_receptionists})` }
+    }
+  }
+
   try {
     await appPool`UPDATE clinic_users SET is_active = ${isActive} WHERE id = ${userId}`
+    // Deactivating a user should invalidate their sessions
+    if (!isActive) {
+      await invalidateUserSessions(userId)
+    }
     return { success: true }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) }
+    return { error: getErrorMessage(error, 'Failed to update user status') }
   }
 }

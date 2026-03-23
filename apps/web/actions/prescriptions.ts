@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { updateTag } from 'next/cache'
 import { tenantSql } from '@/lib/db/tenant'
 import { logger } from '@/lib/logger'
+import { getErrorMessage } from '@/lib/errors'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 function normalizePrescriptionRow(r: Record<string, unknown>) {
@@ -53,6 +54,10 @@ export async function createPrescription(formData: FormData) {
   if (!visitId || !diagnosis) {
     return { error: 'Visit and diagnosis are required' }
   }
+  if (diagnosis.length > 2000) return { error: 'Diagnosis is too long (max 2000 characters)' }
+  if (problemList && problemList.length > 5000) return { error: 'Problem list is too long' }
+  if (notes && notes.length > 5000) return { error: 'Notes are too long' }
+  if (allergies && allergies.length > 1000) return { error: 'Allergies text is too long' }
 
   // Verify the visit belongs to this doctor
   const [visit] = await sql<{ doctor_id: string }[]>`SELECT doctor_id FROM visits WHERE id = ${visitId}`
@@ -98,8 +103,7 @@ export async function createPrescription(formData: FormData) {
     return { success: true, prescription: normalizePrescriptionRow(rows[0]!) }
   } catch (error) {
     logger.error('Error creating prescription', error)
-    const msg = error instanceof Error ? error.message : String(error)
-    return { error: `DB error: ${msg}` }
+    return { error: getErrorMessage(error, 'Failed to save prescription') }
   }
 }
 
@@ -126,6 +130,10 @@ export async function updatePrescription(prescriptionId: string, formData: FormD
   if (!diagnosis) {
     return { error: 'Diagnosis is required' }
   }
+  if (diagnosis.length > 2000) return { error: 'Diagnosis is too long (max 2000 characters)' }
+  if (problemList && problemList.length > 5000) return { error: 'Problem list is too long' }
+  if (notes && notes.length > 5000) return { error: 'Notes are too long' }
+  if (allergies && allergies.length > 1000) return { error: 'Allergies text is too long' }
 
   let medicines = []
   try {
@@ -165,8 +173,7 @@ export async function updatePrescription(prescriptionId: string, formData: FormD
     return { success: true, prescription: normalizePrescriptionRow(rows[0]!) }
   } catch (error) {
     logger.error('Error updating prescription', error)
-    const msg = error instanceof Error ? error.message : String(error)
-    return { error: `DB error: ${msg}` }
+    return { error: getErrorMessage(error, 'Failed to update prescription') }
   }
 }
 
