@@ -106,6 +106,10 @@ export async function getCachedMedicines(clinicSlug: string): Promise<Medicine[]
       medicinesClinicSlug = clinicSlug
       medicinesPromise = null
       return medicinesData
+    }).catch(err => {
+      // Clear the rejected promise so the next call retries instead of returning the same rejection
+      medicinesPromise = null
+      throw err
     })
   }
 
@@ -126,6 +130,7 @@ export async function searchCachedDrugs(clinicSlug: string, query: string): Prom
 // Keyed by `${clinicSlug}:${patientId}` to prevent cross-clinic collisions
 // and to discard entries from a previous clinic session automatically.
 
+const MAX_PRESCRIPTION_CACHE_SIZE = 50
 const prescriptionsMap = new Map<string, Prescription[]>()
 const prescriptionsInFlight = new Map<string, Promise<Prescription[]>>()
 
@@ -139,6 +144,11 @@ export async function getCachedPrescriptions(clinicSlug: string, patientId: stri
 
   if (!prescriptionsInFlight.has(key)) {
     const promise = getPrescriptionsByPatient(patientId).then(data => {
+      // Evict oldest entry when cache is full (Map preserves insertion order)
+      if (prescriptionsMap.size >= MAX_PRESCRIPTION_CACHE_SIZE) {
+        const oldest = prescriptionsMap.keys().next().value
+        if (oldest !== undefined) prescriptionsMap.delete(oldest)
+      }
       prescriptionsMap.set(key, data as Prescription[])
       prescriptionsInFlight.delete(key)
       return prescriptionsMap.get(key)!

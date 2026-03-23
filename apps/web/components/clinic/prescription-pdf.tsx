@@ -6,6 +6,8 @@ import type { Visit } from "@/lib/types"
 type MedicineRow = {
   id: string
   name: string
+  dosage_form?: string
+  display_name?: string
   dosage: string
   frequency: string
   duration: string

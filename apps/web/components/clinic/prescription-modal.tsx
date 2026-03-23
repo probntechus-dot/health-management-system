@@ -44,6 +44,7 @@ import {
   AlertTriangleIcon,
   ChevronRightIcon,
 } from 'lucide-react'
+import { PrescriptionDownloadButton } from '@/components/clinic/prescription-pdf'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -958,6 +959,24 @@ export function PrescriptionModal({ clinicSlug, visit, onSave, onChecked, onClos
             <Button variant="outline" onClick={handleMarkChecked} disabled={isPending}>
               Mark Checked
             </Button>
+          )}
+          {saved && (
+            <PrescriptionDownloadButton
+              visit={visit}
+              diagnosis={diagnosis}
+              problemList={problemList}
+              medicines={medicines}
+              notes={notes}
+              allergies={allergies}
+              followUpDate={followUpDate}
+              suggestedTests={selectedTests}
+              doctorName={doctorName}
+              doctorSpecialty={doctorSpecialty}
+              doctorCredentials={doctorCredentials}
+              clinicPhone={clinicPhone}
+              clinicAddress={clinicAddress}
+              clinicWebsite={clinicWebsite}
+            />
           )}
         </div>
 

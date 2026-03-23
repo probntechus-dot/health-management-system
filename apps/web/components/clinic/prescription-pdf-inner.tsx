@@ -218,7 +218,7 @@ function PrescriptionDocument({
           {/* Left: doctor info */}
           <View style={s.hLeft}>
             {doctorSpecialty ? <Text style={s.specialtyTitle}>{doctorSpecialty}</Text> : null}
-            <Text style={s.drName}>{doctorName || 'Dr. Sarmad Aslam'}</Text>
+            <Text style={s.drName}>{doctorName || ''}</Text>
             {doctorCredentials ? <Text style={s.credential}>{doctorCredentials}</Text> : null}
           </View>
 
@@ -373,6 +373,9 @@ export default function PrescriptionDownloadInner({ disabled = false, className,
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
+    } catch {
+      // PDF generation can fail due to font loading or memory issues — alert rather than silently stalling
+      alert('Failed to generate PDF. Please try again.')
     } finally {
       setBusy(false)
     }
