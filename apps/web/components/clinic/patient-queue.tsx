@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useTransition, useCallback } from "react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
   CardContent,
@@ -49,6 +48,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@workspace/ui/components/dropdown-menu"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { getAllVisits, updateVisitStatus, createVisit } from "@/actions/patients"
@@ -69,6 +70,11 @@ import {
   ClockIcon,
   RotateCcwIcon,
   AlertCircleIcon,
+  CircleDotIcon,
+  MegaphoneIcon,
+  CircleCheckIcon,
+  BanIcon,
+  ChevronDownIcon,
 } from "lucide-react"
 
 type Prefill = {
@@ -124,21 +130,55 @@ function groupVisitsByDate(
     })
 }
 
-function getStatusVariant(
-  status: string
-): "default" | "secondary" | "destructive" | "outline" {
-  switch (status) {
-    case "waiting":
-      return "outline"
-    case "called":
-      return "default"
-    case "checked":
-      return "secondary"
-    case "cancelled":
-      return "destructive"
-    default:
-      return "outline"
+const STATUS_CONFIG: Record<string, {
+  icon: typeof CircleDotIcon
+  label: string
+  dot: string
+}> = {
+  waiting:   { icon: CircleDotIcon,   label: "Waiting",   dot: "bg-amber-500" },
+  called:    { icon: MegaphoneIcon,   label: "Called",     dot: "bg-blue-500" },
+  checked:   { icon: CircleCheckIcon, label: "Checked",    dot: "bg-emerald-500" },
+  cancelled: { icon: BanIcon,         label: "Cancelled",  dot: "bg-red-500" },
+}
+
+/** Transitions that need a confirmation dialog before executing. */
+function getConfirmation(
+  from: VisitStatus,
+  to: VisitStatus,
+  patientName: string,
+  token: string,
+): { title: string; description: string; action: string; destructive: boolean } | null {
+  const name = patientName
+  const tok = token.replace(/^T-/, "")
+
+  if (to === "cancelled") {
+    return {
+      title: "Cancel Visit",
+      description: `Cancel the appointment for ${name} (Token ${tok})? The patient will be removed from the active queue.`,
+      action: "Cancel Visit",
+      destructive: true,
+    }
   }
+  if (from === "checked") {
+    const targetLabel = STATUS_CONFIG[to]?.label ?? to
+    return {
+      title: "Revert Checked Patient",
+      description: `${name} (Token ${tok}) has already been marked as checked. Move back to "${targetLabel}"?`,
+      action: `Move to ${targetLabel}`,
+      destructive: false,
+    }
+  }
+  if (from === "cancelled") {
+    const targetLabel = STATUS_CONFIG[to]?.label ?? to
+    return {
+      title: "Reopen Cancelled Visit",
+      description: `Reopen the cancelled visit for ${name} (Token ${tok}) and set status to "${targetLabel}"?`,
+      action: `Reopen as ${targetLabel}`,
+      destructive: false,
+    }
+  }
+  // Normal transitions (waiting↔called) — no confirmation needed
+  return null
 }
 
 export function PatientQueue({
@@ -166,8 +206,15 @@ export function PatientQueue({
     status: VisitStatus
   } | null>(null)
   const [statusDropdownOpen, setStatusDropdownOpen] = useState<string | null>(null)
-  const [cancelConfirm, setCancelConfirm] = useState<Visit | null>(null)
-  const [cancelPending, setCancelPending] = useState(false)
+  const [statusConfirm, setStatusConfirm] = useState<{
+    visit: Visit
+    to: VisitStatus
+    title: string
+    description: string
+    action: string
+    destructive: boolean
+  } | null>(null)
+  const [confirmPending, setConfirmPending] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [modalName, setModalName] = useState("")
   const [modalAge, setModalAge] = useState("")
@@ -332,41 +379,45 @@ export function PatientQueue({
     [patients, fireLatest]
   )
 
-  const handleStatusChange = useCallback(
-    (visitId: string, status: "called" | "cancelled") => {
-      if (status === "cancelled") {
-        const visit = patients.find((v) => v.id === visitId)
-        if (visit) setCancelConfirm(visit)
-        return
+  const requestStatusChange = useCallback(
+    (visitId: string, to: VisitStatus) => {
+      const visit = patients.find((v) => v.id === visitId)
+      if (!visit || visit.status === to) return
+
+      const confirm = getConfirmation(visit.status, to, visit.patient_name, visit.token_label)
+      if (confirm) {
+        setStatusDropdownOpen(null)
+        setStatusConfirm({ visit, to, ...confirm })
+      } else {
+        applyStatusChange(visitId, to)
       }
-      applyStatusChange(visitId, status)
     },
     [patients, applyStatusChange]
   )
 
-  const confirmCancel = useCallback(() => {
-    if (!cancelConfirm) return
-    setCancelPending(true)
+  const executeConfirmedChange = useCallback(() => {
+    if (!statusConfirm) return
+    setConfirmPending(true)
     fireLatest(
-      () => updateVisitStatus(cancelConfirm.id, "cancelled"),
+      () => updateVisitStatus(statusConfirm.visit.id, statusConfirm.to),
       (result) => {
         if (result.success) {
-          visitsCache.patchStatus(cancelConfirm.id, "cancelled")
+          visitsCache.patchStatus(statusConfirm.visit.id, statusConfirm.to)
           setPatients((prev) =>
             prev.map((v) =>
-              v.id === cancelConfirm.id
-                ? { ...v, status: "cancelled" as VisitStatus }
+              v.id === statusConfirm.visit.id
+                ? { ...v, status: statusConfirm.to }
                 : v
             )
           )
         }
-        setCancelConfirm(null)
-        setCancelPending(false)
+        setStatusConfirm(null)
+        setConfirmPending(false)
       },
-      () => setCancelPending(false),
-      () => setActionError("Failed to cancel patient. Please try again.")
+      () => setConfirmPending(false),
+      () => setActionError("Failed to update status. Please try again.")
     )
-  }, [cancelConfirm, fireLatest])
+  }, [statusConfirm, fireLatest])
 
   const handleReAdd = (visit: Visit) => {
     const data: Prefill = {
@@ -539,33 +590,31 @@ export function PatientQueue({
         </DialogContent>
       </Dialog>
 
-      {/* Cancel Confirmation */}
+      {/* Status Change Confirmation */}
       <AlertDialog
-        open={!!cancelConfirm}
+        open={!!statusConfirm}
         onOpenChange={(open) => {
-          if (!open && !cancelPending) setCancelConfirm(null)
+          if (!open && !confirmPending) setStatusConfirm(null)
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Appointment</AlertDialogTitle>
+            <AlertDialogTitle>{statusConfirm?.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to cancel the appointment for{" "}
-              <strong>{cancelConfirm?.patient_name}</strong> (Token{" "}
-              {cancelConfirm?.token_label.replace(/^T-/, "")})?
+              {statusConfirm?.description}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancelPending}>
-              No, keep
+            <AlertDialogCancel disabled={confirmPending}>
+              Go Back
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmCancel}
-              disabled={cancelPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={executeConfirmedChange}
+              disabled={confirmPending}
+              variant={statusConfirm?.destructive ? "destructive" : "default"}
             >
-              {cancelPending && <Loader2Icon className="animate-spin" />}
-              {cancelPending ? "Cancelling..." : "Yes, cancel"}
+              {confirmPending && <Loader2Icon className="animate-spin" />}
+              {confirmPending ? "Updating..." : statusConfirm?.action}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -681,16 +730,21 @@ export function PatientQueue({
                               }
                             >
                               <DropdownMenuTrigger asChild>
-                                <button className="focus:outline-none">
-                                  <Badge variant={getStatusVariant(visit.status)} className="cursor-pointer hover:opacity-80">
-                                    {visit.status}
-                                  </Badge>
+                                <button className="inline-flex items-center gap-1.5 focus:outline-none group">
+                                  <span className={`size-2 rounded-full ${STATUS_CONFIG[visit.status]?.dot}`} />
+                                  <span className="text-sm font-medium capitalize">{visit.status}</span>
+                                  <ChevronDownIcon className="size-3 text-muted-foreground group-hover:text-foreground transition-colors" />
                                 </button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start">
-                                {(["waiting", "called", "checked", "cancelled"] as VisitStatus[])
+                              <DropdownMenuContent align="start" className="w-44">
+                                <DropdownMenuLabel className="text-[11px] text-muted-foreground font-normal">
+                                  Change status
+                                </DropdownMenuLabel>
+                                {(["waiting", "called", "checked"] as VisitStatus[])
                                   .filter((s) => s !== visit.status)
                                   .map((s) => {
+                                    const cfg = STATUS_CONFIG[s]!
+                                    const Icon = cfg.icon
                                     const isLoading =
                                       updatingAction?.visitId === visit.id &&
                                       updatingAction.status === s
@@ -700,29 +754,44 @@ export function PatientQueue({
                                         disabled={updatingAction !== null}
                                         onSelect={(e) => {
                                           e.preventDefault()
-                                          if (s === "cancelled") {
-                                            setStatusDropdownOpen(null)
-                                            handleStatusChange(visit.id, "cancelled")
-                                          } else {
-                                            applyStatusChange(visit.id, s)
-                                          }
+                                          requestStatusChange(visit.id, s)
                                         }}
+                                        className="gap-2"
                                       >
-                                        <Badge variant={getStatusVariant(s)} className="gap-1">
-                                          {isLoading && (
-                                            <Loader2Icon className="size-3 animate-spin" />
-                                          )}
-                                          {s}
-                                        </Badge>
+                                        {isLoading ? (
+                                          <Loader2Icon className="size-4 animate-spin" />
+                                        ) : (
+                                          <Icon className="size-4" />
+                                        )}
+                                        {cfg.label}
                                       </DropdownMenuItem>
                                     )
                                   })}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  disabled={updatingAction !== null || visit.status === "cancelled"}
+                                  onSelect={(e) => {
+                                    e.preventDefault()
+                                    setStatusDropdownOpen(null)
+                                    requestStatusChange(visit.id, "cancelled")
+                                  }}
+                                  className="gap-2 text-destructive focus:text-destructive"
+                                >
+                                  {updatingAction?.visitId === visit.id &&
+                                  updatingAction.status === "cancelled" ? (
+                                    <Loader2Icon className="size-4 animate-spin" />
+                                  ) : (
+                                    <BanIcon className="size-4" />
+                                  )}
+                                  Cancel Visit
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           ) : (
-                            <Badge variant={getStatusVariant(visit.status)}>
-                              {visit.status}
-                            </Badge>
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className={`size-2 rounded-full ${STATUS_CONFIG[visit.status]?.dot ?? "bg-muted-foreground"}`} />
+                              <span className="text-sm capitalize">{visit.status}</span>
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="overflow-visible">
@@ -762,7 +831,7 @@ export function PatientQueue({
                                   variant="secondary"
                                   size="icon-sm"
                                   onClick={() =>
-                                    handleStatusChange(visit.id, "called")
+                                    requestStatusChange(visit.id, "called")
                                   }
                                   disabled={
                                     updatingAction?.visitId === visit.id
@@ -780,10 +849,7 @@ export function PatientQueue({
                                   variant="ghost"
                                   size="icon-sm"
                                   onClick={() =>
-                                    handleStatusChange(
-                                      visit.id,
-                                      "cancelled"
-                                    )
+                                    requestStatusChange(visit.id, "cancelled")
                                   }
                                   disabled={
                                     updatingAction?.visitId === visit.id

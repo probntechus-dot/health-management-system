@@ -356,7 +356,12 @@ export function PrescriptionModal({ clinicSlug, visit, onSave, onChecked, onClos
     let active = true
     getCachedPrescriptions(clinicSlug, visit.patient_id)
       .then(data => {
-        if (active) { setPastRx(data); setLoadingRx(false) }
+        if (!active) return
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const past = data.filter(rx => new Date(rx.created_at) < today)
+        setPastRx(past)
+        setLoadingRx(false)
       })
       .catch(() => {
         if (active) setLoadingRx(false)
