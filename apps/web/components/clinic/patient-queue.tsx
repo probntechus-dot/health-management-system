@@ -91,6 +91,8 @@ interface PatientQueueProps {
   onPatientSelect?: (visit: Visit) => void
   onReAdd?: (data: Prefill) => void
   refreshKey?: number
+  /** Visit IDs that have a saved prescription — drives edit vs add icon */
+  prescriptionVisitIds?: Set<string>
 }
 
 function groupVisitsByDate(
@@ -187,6 +189,7 @@ export function PatientQueue({
   onPatientSelect,
   onReAdd,
   refreshKey,
+  prescriptionVisitIds,
 }: PatientQueueProps) {
   const cached = visitsCache.get(clinicSlug)
   const [patients, setPatients] = useState<Visit[]>(cached ?? [])
@@ -804,12 +807,12 @@ export function PatientQueue({
                                   size="icon-sm"
                                   onClick={() => onPatientSelect?.(visit)}
                                   title={
-                                    visit.status === "checked"
+                                    prescriptionVisitIds?.has(visit.id) || visit.status === "checked"
                                       ? "Edit prescription"
-                                      : "Open prescription"
+                                      : "Add prescription"
                                   }
                                 >
-                                  {visit.status === "checked" ? (
+                                  {prescriptionVisitIds?.has(visit.id) || visit.status === "checked" ? (
                                     <PencilIcon />
                                   ) : (
                                     <PlusIcon />

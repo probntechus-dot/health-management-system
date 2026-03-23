@@ -120,6 +120,7 @@ export function DoctorDashboard({
   const [showHistory, setShowHistory] = useState(false)
   const [editRx, setEditRx] = useState<Prescription | null>(null)
   const [modalKey, setModalKey] = useState(0)
+  const [rxVisitIds, setRxVisitIds] = useState<Set<string>>(new Set())
   const modalVersionRef = useRef(0)
   const savedRxMap = useRef(new Map<string, Prescription>())
 
@@ -128,6 +129,7 @@ export function DoctorDashboard({
       visitsCache.patchStatus(modalVisit.id, "checked")
       setModalVisit({ ...modalVisit, status: "checked" })
       savedRxMap.current.set(modalVisit.id, _rx)
+      setRxVisitIds(prev => new Set(prev).add(modalVisit.id))
     }
     setEditRx(_rx)
   }
@@ -145,7 +147,7 @@ export function DoctorDashboard({
     setShowHistory(false)
 
     let rx: Prescription | null = null
-    if (visit.status === "checked" && isToday(visit.created_at)) {
+    if (isToday(visit.created_at)) {
       const memorised = savedRxMap.current.get(visit.id)
       if (memorised) {
         rx = memorised
@@ -155,8 +157,14 @@ export function DoctorDashboard({
           visit.patient_id
         )
         if (version !== modalVersionRef.current) return
-        rx = prescriptions.length > 0 ? prescriptions[0]! : null
-        if (rx) savedRxMap.current.set(visit.id, rx)
+        // Find a prescription created today for this visit
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        rx = prescriptions.find(p => new Date(p.created_at) >= today) ?? null
+        if (rx) {
+          savedRxMap.current.set(visit.id, rx)
+          setRxVisitIds(prev => new Set(prev).add(visit.id))
+        }
       }
     }
 
@@ -172,6 +180,7 @@ export function DoctorDashboard({
           clinicSlug={clinicSlug}
           userRole="doctor"
           onPatientSelect={handleSelectPatient}
+          prescriptionVisitIds={rxVisitIds}
         />
       </div>
 
