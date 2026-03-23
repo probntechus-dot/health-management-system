@@ -32,6 +32,7 @@ import {
   StethoscopeIcon,
   SettingsIcon,
   UserPlusIcon,
+  UsersIcon,
   LayoutDashboardIcon,
   BuildingIcon,
   DatabaseIcon,
@@ -62,6 +63,13 @@ const NAV_CONFIG: Record<string, { label: string; items: NavItem[] }> = {
     label: "Receptionist",
     items: [
       { title: "Patients", url: "/receptionist/patients", icon: <UserPlusIcon /> },
+      { title: "Settings", url: "/settings", icon: <SettingsIcon /> },
+    ],
+  },
+  clinic_admin: {
+    label: "Clinic Admin",
+    items: [
+      { title: "Manage Users", url: "/clinic-admin", icon: <UsersIcon /> },
       { title: "Settings", url: "/settings", icon: <SettingsIcon /> },
     ],
   },

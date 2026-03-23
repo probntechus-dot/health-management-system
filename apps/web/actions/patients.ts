@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { updateTag } from 'next/cache'
 import { fetchVisits, findOrCreatePatient, insertVisit, patchVisitStatus } from '@/lib/data/patients'
+import { getAllocatedDoctorIds } from '@/lib/data/clinic'
 import { tenantSql } from '@/lib/db/tenant'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { emitQueueEvent } from '@/lib/events'
@@ -13,7 +14,9 @@ import { normalizePhoneNumber } from '@/lib/utils'
 
 export async function getAllVisits(offset = 0) {
   const session = await requireAuth()
-  return fetchVisits(session.clinicSlug, offset)
+  const doctorIds = await getAllocatedDoctorIds(session.userId, session.role, session.clinicId)
+  if (doctorIds.length === 0) return []
+  return fetchVisits(session.clinicSlug, doctorIds, offset)
 }
 
 export async function createVisit(formData: FormData) {
@@ -36,6 +39,13 @@ export async function createVisit(formData: FormData) {
   const contact_number   = formData.get('contact') as string
   const address          = formData.get('address') as string
   const reason_for_visit = formData.get('reasonForVisit') as string
+  const doctorId         = formData.get('doctorId') as string | null
+
+  // Determine target doctor: explicit from form, or self if doctor role
+  const targetDoctorId = doctorId || (session.role === 'doctor' ? session.userId : null)
+  if (!targetDoctorId) {
+    return { error: 'A doctor must be selected for this visit' }
+  }
 
   if (!full_name || !age || !gender || !contact_number || !reason_for_visit) {
     return { error: 'All required fields must be filled' }
@@ -50,7 +60,7 @@ export async function createVisit(formData: FormData) {
     return { error: 'Contact number must be a valid Pakistan number (11 digits starting with 03, or 12 digits starting with 92)' }
   }
 
-  // Block duplicate same-day visit for the same contact number
+  // Block duplicate same-day visit for the same contact + same doctor
   const sql = tenantSql(session.clinicSlug)
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
@@ -60,6 +70,7 @@ export async function createVisit(formData: FormData) {
     FROM visits v
     JOIN patients p ON p.id = v.patient_id
     WHERE p.contact_number = ${normalizedContact}
+      AND v.doctor_id = ${targetDoctorId}
       AND v.status != 'cancelled'
       AND v.created_at >= ${todayStart.toISOString()}
     LIMIT 1
@@ -81,13 +92,13 @@ export async function createVisit(formData: FormData) {
   if (patientResult.error) return { error: patientResult.error }
 
   // Create the visit
-  const visitResult = await insertVisit(session.clinicSlug, patientResult.patientId!, reason_for_visit)
+  const visitResult = await insertVisit(session.clinicSlug, patientResult.patientId!, reason_for_visit, targetDoctorId)
   if (visitResult.error) return { error: visitResult.error }
 
   revalidatePath('/receptionist')
   revalidatePath('/doctor')
   updateTag(`dashboard:${session.clinicSlug}`)
-  emitQueueEvent(session.clinicSlug, { type: 'visit_added' })
+  emitQueueEvent(session.clinicSlug, { type: 'visit_added', doctorId: targetDoctorId })
 
   return { success: true, visit: visitResult.data }
 }
@@ -119,10 +130,12 @@ export async function updateVisitStatus(visitId: string, status: VisitStatus) {
   const result = await patchVisitStatus(session.clinicSlug, visitId, status)
   if (result.error) return { error: result.error }
 
+  const doctorId = result.data?.doctor_id as string | undefined
+
   revalidatePath('/receptionist')
   revalidatePath('/doctor')
   updateTag(`dashboard:${session.clinicSlug}`)
-  emitQueueEvent(session.clinicSlug, { type: 'status_changed', visitId, status })
+  emitQueueEvent(session.clinicSlug, { type: 'status_changed', visitId, status, doctorId })
 
   return { success: true, visit: result.data }
 }

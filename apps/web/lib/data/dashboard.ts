@@ -23,7 +23,7 @@ export type DashboardStats = {
   }[]
 }
 
-async function _fetchDashboardStats(clinicSlug: string): Promise<DashboardStats> {
+async function _fetchDashboardStats(clinicSlug: string, doctorIds: string[]): Promise<DashboardStats> {
   const sql = tenantSql(clinicSlug)
 
   const [todayCounts, weeklyVisits, upcomingQueue, todayFollowUps] = await Promise.all([
@@ -32,6 +32,7 @@ async function _fetchDashboardStats(clinicSlug: string): Promise<DashboardStats>
       SELECT status, COUNT(*)::text AS count
       FROM visits
       WHERE created_at::date = CURRENT_DATE
+        AND doctor_id = ANY(${doctorIds})
       GROUP BY status
     `,
 
@@ -57,6 +58,7 @@ async function _fetchDashboardStats(clinicSlug: string): Promise<DashboardStats>
           COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled
         FROM visits
         WHERE created_at::date >= CURRENT_DATE - INTERVAL '6 days'
+          AND doctor_id = ANY(${doctorIds})
         GROUP BY created_at::date
       ) v ON v.visit_date = d.day
       ORDER BY d.day
@@ -69,6 +71,7 @@ async function _fetchDashboardStats(clinicSlug: string): Promise<DashboardStats>
       FROM visits v
       JOIN patients p ON p.id = v.patient_id
       WHERE v.created_at::date = CURRENT_DATE
+        AND v.doctor_id = ANY(${doctorIds})
         AND v.status IN ('waiting', 'called')
       ORDER BY v.token_number ASC
       LIMIT 8
@@ -83,6 +86,7 @@ async function _fetchDashboardStats(clinicSlug: string): Promise<DashboardStats>
       JOIN visits v ON v.id = pr.visit_id
       JOIN patients p ON p.id = v.patient_id
       WHERE pr.follow_up = CURRENT_DATE
+        AND v.doctor_id = ANY(${doctorIds})
       ORDER BY pr.created_at DESC
     `,
   ])
@@ -123,10 +127,11 @@ async function _fetchDashboardStats(clinicSlug: string): Promise<DashboardStats>
   }
 }
 
-export function fetchDashboardStats(clinicSlug: string): Promise<DashboardStats> {
+export function fetchDashboardStats(clinicSlug: string, doctorIds: string[]): Promise<DashboardStats> {
+  const key = `dashboard-stats-${clinicSlug}-${doctorIds.sort().join(',')}`
   return unstable_cache(
-    () => _fetchDashboardStats(clinicSlug),
-    [`dashboard-stats-${clinicSlug}`],
+    () => _fetchDashboardStats(clinicSlug, doctorIds),
+    [key],
     { tags: [`dashboard:${clinicSlug}`] }
   )()
 }

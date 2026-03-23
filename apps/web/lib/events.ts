@@ -44,8 +44,8 @@ export function deleteClinicEmitter(slug: string): void {
 }
 
 export type QueueEvent =
-  | { type: 'status_changed'; visitId: string; status: string }
-  | { type: 'visit_added' }
+  | { type: 'status_changed'; visitId: string; status: string; doctorId?: string }
+  | { type: 'visit_added'; doctorId?: string }
 
 export function emitQueueEvent(slug: string, event: QueueEvent): void {
   getClinicEmitter(slug).emit(QUEUE_EVENT, event)

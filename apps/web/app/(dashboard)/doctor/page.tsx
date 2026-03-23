@@ -4,7 +4,7 @@ import { DoctorOverview } from "@/components/clinic/doctor-overview"
 
 export default async function DoctorPage() {
   const session = await requireRole(["doctor"])
-  const stats = await fetchDashboardStats(session.clinicSlug)
+  const stats = await fetchDashboardStats(session.clinicSlug, [session.userId])
 
   return (
     <DoctorOverview

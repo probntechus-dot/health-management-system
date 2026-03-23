@@ -20,6 +20,7 @@ export type VisitStatus = 'waiting' | 'called' | 'checked' | 'cancelled'
 export type Visit = {
   id: string
   patient_id: string
+  doctor_id: string
   token_number: number
   token_label: string
   reason_for_visit: string

@@ -14,6 +14,7 @@ function mapVisitRow(row: Record<string, unknown>): Visit {
   return {
     id:               row.id               as string,
     patient_id:       row.patient_id       as string,
+    doctor_id:        row.doctor_id        as string,
     token_number:     row.token_number     as number,
     token_label:      row.token_label      as string,
     reason_for_visit: row.reason_for_visit as string,
@@ -32,13 +33,14 @@ function mapVisitRow(row: Record<string, unknown>): Visit {
 
 // ── Visits ──────────────────────────────────────────────────────────────────
 
-export async function fetchVisits(clinicSlug: string, offset = 0): Promise<Visit[]> {
+export async function fetchVisits(clinicSlug: string, doctorIds: string[], offset = 0): Promise<Visit[]> {
   const sql = tenantSql(clinicSlug)
   try {
     const rows = await sql<Record<string, unknown>[]>`
       SELECT
         v.id,
         v.patient_id,
+        v.doctor_id,
         v.token_number,
         v.token_label,
         v.reason_for_visit,
@@ -54,6 +56,7 @@ export async function fetchVisits(clinicSlug: string, offset = 0): Promise<Visit
         p.address        AS patient_address
       FROM visits v
       JOIN patients p ON p.id = v.patient_id
+      WHERE v.doctor_id = ANY(${doctorIds})
       ORDER BY v.created_at ASC
       LIMIT ${PAGE_SIZE} OFFSET ${offset}
     `
@@ -67,19 +70,21 @@ export async function fetchVisits(clinicSlug: string, offset = 0): Promise<Visit
 export async function insertVisit(
   clinicSlug: string,
   patientId: string,
-  reasonForVisit: string
+  reasonForVisit: string,
+  doctorId: string,
 ): Promise<{ data: Record<string, unknown> | null; error: string | null }> {
   const sql = tenantSql(clinicSlug)
   try {
     const rows = await sql<Record<string, unknown>[]>`
       WITH inserted AS (
-        INSERT INTO visits (patient_id, reason_for_visit, status, priority)
-        VALUES (${patientId}, ${reasonForVisit}, 'waiting', 'normal')
+        INSERT INTO visits (patient_id, doctor_id, reason_for_visit, status, priority)
+        VALUES (${patientId}, ${doctorId}, ${reasonForVisit}, 'waiting', 'normal')
         RETURNING *
       )
       SELECT
         v.id,
         v.patient_id,
+        v.doctor_id,
         v.token_number,
         v.token_label,
         v.reason_for_visit,

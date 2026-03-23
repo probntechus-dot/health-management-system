@@ -5,8 +5,9 @@ export const SESSION_UI_COOKIE = 'clinic_session_ui'
 export type Session = {
   userId:         string
   email:          string
-  role:           'doctor' | 'receptionist'
+  role:           'doctor' | 'receptionist' | 'clinic_admin'
   fullName:       string
+  clinicId:       string
   clinicSlug:     string
   specialization: string | null
 }

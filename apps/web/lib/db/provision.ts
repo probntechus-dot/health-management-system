@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS patients (
 CREATE TABLE IF NOT EXISTS visits (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   patient_id       UUID        NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  doctor_id        UUID        NOT NULL,
   token_number     INTEGER     NOT NULL,
   token_label      TEXT        GENERATED ALWAYS AS ('T-' || LPAD(token_number::TEXT, 2, '0')) STORED,
   reason_for_visit TEXT,
@@ -82,6 +83,7 @@ CREATE TABLE IF NOT EXISTS medicines (
 CREATE INDEX IF NOT EXISTS idx_patients_contact    ON patients(contact_number);
 CREATE INDEX IF NOT EXISTS idx_patients_mrn        ON patients(mrn);
 CREATE INDEX IF NOT EXISTS idx_visits_patient      ON visits(patient_id);
+CREATE INDEX IF NOT EXISTS idx_visits_doctor       ON visits(doctor_id);
 CREATE INDEX IF NOT EXISTS idx_visits_status       ON visits(status);
 -- DESC index matches the assign_next_token trigger query which scans today's
 -- rows. The planner uses an index-only scan on (created_at DESC) for the

@@ -31,7 +31,7 @@ interface Props {
   initialFullName: string
   initialSpecialization: string
   email: string
-  role: "doctor" | "receptionist"
+  role: "doctor" | "receptionist" | "clinic_admin"
 }
 
 export function SettingsClient({

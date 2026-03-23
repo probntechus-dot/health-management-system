@@ -71,12 +71,19 @@ export async function login(formData: FormData) {
     email:          user.email,
     role:           user.role,
     fullName:       user.full_name,
+    clinicId:       user.clinic_id,
     clinicSlug:     user.clinic_slug,
     specialization: user.specialization ?? null,
   }
 
   await writeSessionCookies(session)
-  redirect(user.role === 'doctor' ? '/doctor' : '/receptionist/patients')
+
+  const redirectMap: Record<string, string> = {
+    doctor: '/doctor',
+    receptionist: '/receptionist/patients',
+    clinic_admin: '/clinic-admin',
+  }
+  redirect(redirectMap[user.role] ?? '/login')
 }
 
 export async function logout() {
