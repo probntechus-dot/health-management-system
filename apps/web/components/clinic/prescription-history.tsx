@@ -27,8 +27,11 @@ interface PrescriptionHistoryProps {
   onClose: () => void
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-PK", {
+function formatDate(iso: string | Date) {
+  if (!iso) return ''
+  const d = iso instanceof Date ? iso : new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString("en-PK", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -191,9 +194,7 @@ function PrescriptionCard({
             <div className="flex items-center gap-2">
               <CalendarIcon className="size-3.5 text-primary" />
               <span className="text-sm font-semibold text-primary">
-                {typeof prescription.follow_up === "string"
-                  ? prescription.follow_up.split("-").reverse().join("/")
-                  : new Date(prescription.follow_up).toLocaleDateString("en-GB")}
+                {formatDate(prescription.follow_up)}
               </span>
             </div>
           </div>

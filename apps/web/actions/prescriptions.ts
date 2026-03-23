@@ -8,6 +8,16 @@ import { tenantSql } from '@/lib/db/tenant'
 import { logger } from '@/lib/logger'
 import { checkRateLimit } from '@/lib/rate-limit'
 
+function normalizePrescriptionRow(r: Record<string, unknown>) {
+  return {
+    ...r,
+    created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at ?? ''),
+    follow_up: r.follow_up instanceof Date ? r.follow_up.toISOString().slice(0, 10) : (r.follow_up ?? null),
+    medicines: typeof r.medicines === 'string' ? JSON.parse(r.medicines) : (r.medicines ?? []),
+    suggested_tests: typeof r.suggested_tests === 'string' ? JSON.parse(r.suggested_tests) : (r.suggested_tests ?? null),
+  }
+}
+
 export async function getMedicines() {
   const session = await requireAuth()
   const sql = tenantSql(session.clinicSlug)
@@ -79,7 +89,7 @@ export async function createPrescription(formData: FormData) {
     revalidatePath('/doctor')
     updateTag(`dashboard:${session.clinicSlug}`)
 
-    return { success: true, prescription: rows[0] }
+    return { success: true, prescription: normalizePrescriptionRow(rows[0]!) }
   } catch (error) {
     logger.error('Error creating prescription', error)
     const msg = error instanceof Error ? error.message : String(error)
@@ -138,7 +148,7 @@ export async function updatePrescription(prescriptionId: string, formData: FormD
 
     revalidatePath('/doctor')
     updateTag(`dashboard:${session.clinicSlug}`)
-    return { success: true, prescription: rows[0] }
+    return { success: true, prescription: normalizePrescriptionRow(rows[0]!) }
   } catch (error) {
     logger.error('Error updating prescription', error)
     const msg = error instanceof Error ? error.message : String(error)
@@ -159,7 +169,7 @@ export async function getPrescriptionsByPatient(patientId: string) {
       ORDER BY pr.created_at DESC
       LIMIT 100
     `
-    return rows
+    return rows.map(normalizePrescriptionRow)
   } catch (error) {
     logger.error('Error fetching patient prescriptions', error)
     return []

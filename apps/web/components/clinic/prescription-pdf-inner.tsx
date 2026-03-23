@@ -218,9 +218,9 @@ function PrescriptionDocument({
 
           {/* Left: doctor info */}
           <View style={s.hLeft}>
-            {doctorSpecialty ? <Text style={s.specialtyTitle}>{doctorSpecialty}</Text> : null}
-            <Text style={s.drName}>{doctorName || ''}</Text>
+            <Text style={s.drName}>{doctorName ? `Dr. ${doctorName}` : ''}</Text>
             {doctorCredentials ? <Text style={s.credential}>{doctorCredentials}</Text> : null}
+            {doctorSpecialty ? <Text style={s.specialtyTitle}>{doctorSpecialty}</Text> : null}
           </View>
 
           {/* Right: patient details — label + colon + value, all aligned */}

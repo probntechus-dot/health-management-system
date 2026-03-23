@@ -89,7 +89,7 @@ export function DoctorOverview({ doctorName, stats }: DoctorOverviewProps) {
       {/* Greeting */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
-          {getGreeting()}, Dr. {doctorName.split(" ").slice(-1)[0]}
+          {getGreeting()}, Dr. {doctorName.split(" ")[0]}
         </h1>
         <p className="text-muted-foreground">
           Here&apos;s an overview of your clinic today.
