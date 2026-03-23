@@ -54,6 +54,12 @@ export async function createPrescription(formData: FormData) {
     return { error: 'Visit and diagnosis are required' }
   }
 
+  // Verify the visit belongs to this doctor
+  const [visit] = await sql<{ doctor_id: string }[]>`SELECT doctor_id FROM visits WHERE id = ${visitId}`
+  if (!visit || visit.doctor_id !== session.userId) {
+    return { error: 'Visit not found' }
+  }
+
   let medicines = []
   try {
     medicines = medicinesRaw ? JSON.parse(medicinesRaw) : []
@@ -108,6 +114,14 @@ export async function updatePrescription(prescriptionId: string, formData: FormD
   const followUp           = formData.get('followUp')        as string
   const medicinesRaw       = formData.get('medicines')       as string
   const suggestedTestsRaw  = formData.get('suggestedTests')  as string
+
+  // Verify this prescription belongs to the doctor
+  const [ownership] = await sql<{ id: string }[]>`
+    SELECT pr.id FROM prescriptions pr
+    JOIN visits v ON v.id = pr.visit_id
+    WHERE pr.id = ${prescriptionId} AND v.doctor_id = ${session.userId}
+  `
+  if (!ownership) return { error: 'Prescription not found' }
 
   if (!diagnosis) {
     return { error: 'Diagnosis is required' }

@@ -41,10 +41,16 @@ export async function createVisit(formData: FormData) {
   const reason_for_visit = formData.get('reasonForVisit') as string
   const doctorId         = formData.get('doctorId') as string | null
 
-  // Determine target doctor: explicit from form, or self if doctor role
-  const targetDoctorId = doctorId || (session.role === 'doctor' ? session.userId : null)
+  // Determine target doctor: for doctors, always self. For receptionists, from form.
+  const targetDoctorId = session.role === 'doctor' ? session.userId : doctorId
   if (!targetDoctorId) {
     return { error: 'A doctor must be selected for this visit' }
+  }
+
+  // Validate the target doctor is within the user's allocation
+  const allowedIds = await getAllocatedDoctorIds(session.userId, session.role, session.clinicId)
+  if (!allowedIds.includes(targetDoctorId)) {
+    return { error: 'You are not authorized to create visits for this doctor' }
   }
 
   if (!full_name || !age || !gender || !contact_number || !reason_for_visit) {
@@ -126,6 +132,16 @@ export async function findPatientsByContact(contact: string) {
 
 export async function updateVisitStatus(visitId: string, status: VisitStatus) {
   const session = await requireAuth()
+
+  // Verify the visit belongs to the user's scope
+  const allowedIds = await getAllocatedDoctorIds(session.userId, session.role, session.clinicId)
+  if (allowedIds.length > 0) {
+    const sql = tenantSql(session.clinicSlug)
+    const [visit] = await sql<{ doctor_id: string }[]>`SELECT doctor_id FROM visits WHERE id = ${visitId}`
+    if (!visit || !allowedIds.includes(visit.doctor_id)) {
+      return { error: 'Visit not found' }
+    }
+  }
 
   const result = await patchVisitStatus(session.clinicSlug, visitId, status)
   if (result.error) return { error: result.error }

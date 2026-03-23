@@ -6,7 +6,12 @@ export default async function LoginPage() {
   const session = await getSession()
 
   if (session) {
-    redirect(session.role === "doctor" ? "/doctor" : "/receptionist/patients")
+    const redirectMap: Record<string, string> = {
+      doctor: '/doctor',
+      receptionist: '/receptionist/patients',
+      clinic_admin: '/clinic-admin',
+    }
+    redirect(redirectMap[session.role] ?? '/login')
   }
 
   return (

@@ -110,6 +110,7 @@ export async function addUser(data: {
   const session = await requireClinicAdmin()
 
   // Validate
+  if (!['doctor', 'receptionist'].includes(data.role)) return { error: 'Invalid role' }
   if (!data.fullName.trim() || data.fullName.length < 2) return { error: 'Name must be at least 2 characters' }
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRe.test(data.email)) return { error: 'Invalid email address' }
@@ -227,6 +228,17 @@ export async function setReceptionistDoctors(
   }
 
   try {
+    // Validate all doctorIds belong to this clinic
+    if (doctorIds.length > 0) {
+      const validDoctors = await appPool<{ id: string }[]>`
+        SELECT id FROM clinic_users
+        WHERE id = ANY(${doctorIds}) AND clinic_id = ${session.clinicId} AND role = 'doctor' AND is_active = true
+      `
+      const validIds = new Set(validDoctors.map(d => d.id))
+      const invalidIds = doctorIds.filter(id => !validIds.has(id))
+      if (invalidIds.length > 0) return { error: 'One or more selected doctors are invalid' }
+    }
+
     // Clear existing and re-insert
     await appPool`DELETE FROM receptionist_doctors WHERE receptionist_id = ${receptionistId}`
     for (const doctorId of doctorIds) {

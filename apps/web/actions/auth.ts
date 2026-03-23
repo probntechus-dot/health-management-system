@@ -31,7 +31,7 @@ export async function login(formData: FormData) {
     id:             string
     email:          string
     password_hash:  string
-    role:           'doctor' | 'receptionist'
+    role:           'doctor' | 'receptionist' | 'clinic_admin'
     full_name:      string
     specialization: string | null
     is_active:      boolean
