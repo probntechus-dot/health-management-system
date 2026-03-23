@@ -165,9 +165,9 @@ export function DoctorDashboard({
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 h-full">
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 h-full min-h-0">
       {/* Left — Patient queue */}
-      <div className="overflow-y-auto h-full pb-8">
+      <div className="overflow-y-auto min-h-0 pb-8">
         <PatientQueue
           clinicSlug={clinicSlug}
           userRole="doctor"
@@ -176,7 +176,7 @@ export function DoctorDashboard({
       </div>
 
       {/* Right — Prescription area */}
-      <div className="overflow-y-auto h-full pb-8">
+      <div className="min-h-0 flex flex-col overflow-y-auto pb-8">
         {!modalVisit ? (
           <Card>
             <CardContent className="py-12">

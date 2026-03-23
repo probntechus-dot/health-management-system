@@ -519,7 +519,7 @@ export function PrescriptionModal({ clinicSlug, visit, onSave, onChecked, onClos
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <Card className="flex flex-col overflow-hidden">
+    <Card className="flex flex-1 min-h-0 flex-col overflow-hidden">
       {/* Scrollable prescription body */}
       <div className="flex-1 overflow-y-auto flex flex-col">
 
@@ -930,7 +930,7 @@ export function PrescriptionModal({ clinicSlug, visit, onSave, onChecked, onClos
       </div>
 
       {/* ── Footer action bar ── */}
-      <div className="px-4 py-4 bg-background border-t border-border">
+      <div className="px-4 pt-4 bg-background border-t border-border">
         {message && (
           <Alert variant={message.type === 'error' ? 'destructive' : 'default'} className="mb-3">
             {message.type === 'success' && <CheckIcon className="h-4 w-4" />}
