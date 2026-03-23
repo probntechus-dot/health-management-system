@@ -136,7 +136,7 @@ export function ContactLookup({
             >
               <span className="font-medium">{m.full_name}</span>
               <span className="text-muted-foreground text-xs">
-                {m.contact_number} &middot; {m.gender}
+                {m.contact_number} · {m.gender}
                 {m.age ? ` · ${m.age}y` : ""}
               </span>
             </button>
