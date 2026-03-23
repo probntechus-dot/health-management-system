@@ -177,9 +177,10 @@ const s = StyleSheet.create({
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-function formatDate(iso: string) {
+function formatDate(iso: string | Date) {
   if (!iso) return ''
-  const [y, m, d] = iso.split('-')
+  const str = iso instanceof Date ? iso.toISOString().slice(0, 10) : String(iso)
+  const [y, m, d] = str.split('-')
   return `${MONTHS[parseInt(m!, 10) - 1]!} ${parseInt(d!, 10)}, ${y}`
 }
 

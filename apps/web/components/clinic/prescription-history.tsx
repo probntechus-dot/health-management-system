@@ -191,7 +191,9 @@ function PrescriptionCard({
             <div className="flex items-center gap-2">
               <CalendarIcon className="size-3.5 text-primary" />
               <span className="text-sm font-semibold text-primary">
-                {prescription.follow_up.split("-").reverse().join("/")}
+                {typeof prescription.follow_up === "string"
+                  ? prescription.follow_up.split("-").reverse().join("/")
+                  : new Date(prescription.follow_up).toLocaleDateString("en-GB")}
               </span>
             </div>
           </div>
