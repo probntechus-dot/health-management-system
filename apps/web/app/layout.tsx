@@ -1,21 +1,26 @@
-import { Geist_Mono, Inter, Plus_Jakarta_Sans } from "next/font/google"
+import localFont from "next/font/local"
 
 import "@workspace/ui/globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
-
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-heading",
+const inter = localFont({
+  src: "../public/fonts/Inter-Variable.woff2",
+  variable: "--font-sans",
+  display: "swap",
 })
 
-const fontMono = Geist_Mono({
-  subsets: ["latin"],
+const plusJakarta = localFont({
+  src: "../public/fonts/PlusJakartaSans-Variable.woff2",
+  variable: "--font-heading",
+  display: "swap",
+})
+
+const geistMono = localFont({
+  src: "../public/fonts/GeistMono-Variable.woff2",
   variable: "--font-mono",
+  display: "swap",
 })
 
 export default function RootLayout({
@@ -27,7 +32,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", inter.variable, plusJakarta.variable)}
+      className={cn("antialiased", inter.variable, plusJakarta.variable, geistMono.variable, "font-sans")}
     >
       <body>
         <ThemeProvider>

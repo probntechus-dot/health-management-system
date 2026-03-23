@@ -129,7 +129,11 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     }
-  h1, h2, h3, h4, h5, h6 {
+  h1, h2, h3, h4, h5, h6,
+  [data-slot="card-title"],
+  [data-slot="dialog-title"],
+  [data-slot="sheet-title"],
+  [data-slot="alert-dialog-title"] {
     font-family: var(--font-heading), system-ui, sans-serif;
     letter-spacing: -0.02em;
     }

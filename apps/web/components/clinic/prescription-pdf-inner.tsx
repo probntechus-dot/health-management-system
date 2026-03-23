@@ -218,7 +218,7 @@ function PrescriptionDocument({
 
           {/* Left: doctor info */}
           <View style={s.hLeft}>
-            <Text style={s.drName}>{doctorName ? `Dr. ${doctorName}` : ''}</Text>
+            <Text style={s.drName}>{doctorName ? (doctorName.startsWith('Dr.') ? doctorName : `Dr. ${doctorName}`) : ''}</Text>
             {doctorCredentials ? <Text style={s.credential}>{doctorCredentials}</Text> : null}
             {doctorSpecialty ? <Text style={s.specialtyTitle}>{doctorSpecialty}</Text> : null}
           </View>
