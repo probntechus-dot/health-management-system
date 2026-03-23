@@ -95,9 +95,12 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const pathname = usePathname()
-  const { setOpenMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
   const nav = NAV_CONFIG[user.role] ?? NAV_CONFIG["receptionist"]!
 
+  const closeMobileSidebar = () => {
+    if (isMobile) setOpenMobile(false)
+  }
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -105,7 +108,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/" onClick={() => setOpenMobile(false)}>
+              <Link href="/" onClick={closeMobileSidebar}>
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <StethoscopeIcon className="size-4" />
                 </div>
@@ -135,7 +138,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                     isActive={isActive}
                     tooltip={item.title}
                   >
-                    <Link href={item.url} onClick={() => setOpenMobile(false)}>
+                    <Link href={item.url} onClick={closeMobileSidebar}>
                       {item.icon}
                       <span>{item.title}</span>
                     </Link>
@@ -189,7 +192,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/settings" onClick={() => setOpenMobile(false)}>
+                  <Link href="/settings" onClick={closeMobileSidebar}>
                     <SettingsIcon />
                     Settings
                   </Link>
