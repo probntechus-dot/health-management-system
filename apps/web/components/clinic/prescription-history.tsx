@@ -25,6 +25,12 @@ interface PrescriptionHistoryProps {
   clinicSlug: string
   visit: Visit
   onClose: () => void
+  doctorName?: string
+  doctorSpecialty?: string
+  doctorCredentials?: string
+  clinicPhone?: string
+  clinicAddress?: string
+  clinicWebsite?: string
 }
 
 function formatDate(iso: string | Date) {
@@ -58,10 +64,22 @@ function PrescriptionCard({
   visit,
   prescription,
   index,
+  doctorName,
+  doctorSpecialty,
+  doctorCredentials,
+  clinicPhone,
+  clinicAddress,
+  clinicWebsite,
 }: {
   visit: Visit
   prescription: Prescription
   index: number
+  doctorName?: string
+  doctorSpecialty?: string
+  doctorCredentials?: string
+  clinicPhone?: string
+  clinicAddress?: string
+  clinicWebsite?: string
 }) {
   const date = formatDate(prescription.created_at)
   const meds = Array.isArray(prescription.medicines)
@@ -107,6 +125,12 @@ function PrescriptionCard({
                   ? (prescription.suggested_tests as string[])
                   : undefined
               }
+              doctorName={doctorName}
+              doctorSpecialty={doctorSpecialty}
+              doctorCredentials={doctorCredentials}
+              clinicPhone={clinicPhone}
+              clinicAddress={clinicAddress}
+              clinicWebsite={clinicWebsite}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-md text-xs font-medium hover:bg-accent transition-colors"
             />
           </div>
@@ -208,6 +232,12 @@ export function PrescriptionHistory({
   clinicSlug,
   visit,
   onClose,
+  doctorName,
+  doctorSpecialty,
+  doctorCredentials,
+  clinicPhone,
+  clinicAddress,
+  clinicWebsite,
 }: PrescriptionHistoryProps) {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [loading, setLoading] = useState(true)
@@ -294,6 +324,12 @@ export function PrescriptionHistory({
               visit={visit}
               prescription={rx}
               index={i + 1}
+              doctorName={doctorName}
+              doctorSpecialty={doctorSpecialty}
+              doctorCredentials={doctorCredentials}
+              clinicPhone={clinicPhone}
+              clinicAddress={clinicAddress}
+              clinicWebsite={clinicWebsite}
             />
           ))}
         </div>

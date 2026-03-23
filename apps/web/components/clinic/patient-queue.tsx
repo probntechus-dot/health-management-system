@@ -689,8 +689,8 @@ export function PatientQueue({
                       <TableHead className="w-16">Token</TableHead>
                       <TableHead>Patient</TableHead>
                       <TableHead className="w-12">Age</TableHead>
-                      <TableHead className="w-32">Contact</TableHead>
-                      <TableHead>Reason</TableHead>
+                      <TableHead className="hidden @md:table-cell w-32">Contact</TableHead>
+                      <TableHead className="hidden @xl:table-cell">Reason</TableHead>
                       <TableHead className="w-14 @3xl:w-24">Status</TableHead>
                       <TableHead className="w-20 text-right">
                         Action
@@ -718,10 +718,10 @@ export function PatientQueue({
                           {visit.patient_name}
                         </TableCell>
                         <TableCell className="!overflow-visible !whitespace-nowrap">{visit.patient_age ?? "-"}</TableCell>
-                        <TableCell className="text-muted-foreground !whitespace-nowrap">
+                        <TableCell className="hidden @md:table-cell text-muted-foreground !whitespace-nowrap">
                           {visit.patient_contact || "-"}
                         </TableCell>
-                        <TableCell className="text-muted-foreground !overflow-visible !whitespace-normal">
+                        <TableCell className="hidden @xl:table-cell text-muted-foreground !overflow-visible !whitespace-normal">
                           {visit.reason_for_visit || "-"}
                         </TableCell>
                         <TableCell className="!overflow-visible !whitespace-nowrap">

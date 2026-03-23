@@ -207,6 +207,12 @@ export function DoctorDashboard({
           key={`history-${modalVisit.id}`}
           clinicSlug={clinicSlug}
           visit={modalVisit}
+          doctorName={doctorName}
+          doctorSpecialty={doctorSpecialty}
+          doctorCredentials={doctorCredentials}
+          clinicPhone={clinicPhone}
+          clinicAddress={clinicAddress}
+          clinicWebsite={clinicWebsite}
           onClose={() => {
             if (showHistory && isToday(modalVisit.created_at)) {
               setShowHistory(false)
