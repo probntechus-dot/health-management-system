@@ -65,25 +65,40 @@ export function PatientForm({ clinicSlug, onSuccess, prefill, allocatedDoctors }
     setContact(m.contact_number)
   }
 
+  // Ref guard prevents double-submission. isPending (React state) needs
+  // a re-render to disable the button in the DOM — a rapid second click
+  // can slip through before that render. Refs update synchronously.
+  const submittingRef = useRef(false)
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (submittingRef.current) return
+    submittingRef.current = true
+
     const formData = new FormData(e.currentTarget)
     formData.set("gender", gender)
     if (doctorId) formData.set("doctorId", doctorId)
 
+    // Clear stale messages immediately (outside transition) so they
+    // disappear before the server responds, not after.
+    setError("")
+    setSuccess(false)
+
     startTransition(async () => {
-      setError("")
-      setSuccess(false)
-      const result = await createVisit(formData)
-      if (result?.error) {
-        setError(result.error)
-      } else {
-        formRef.current?.reset()
-        setContact("")
-        setGender("")
-        setSuccess(true)
-        setTimeout(() => setSuccess(false), 3000)
-        onSuccess?.()
+      try {
+        const result = await createVisit(formData)
+        if (result?.error) {
+          setError(result.error)
+        } else {
+          formRef.current?.reset()
+          setContact("")
+          setGender("")
+          setSuccess(true)
+          setTimeout(() => setSuccess(false), 3000)
+          onSuccess?.()
+        }
+      } finally {
+        submittingRef.current = false
       }
     })
   }

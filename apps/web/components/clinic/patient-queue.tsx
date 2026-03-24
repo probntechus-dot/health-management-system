@@ -460,8 +460,15 @@ export function PatientQueue({
     setModalReason("")
   }
 
+  // Ref guard: isPending needs a re-render to disable the button in
+  // the DOM — a rapid second click can slip through before that render.
+  const modalSubmittingRef = useRef(false)
+
   const handleAddPatient = (e: React.FormEvent) => {
     e.preventDefault()
+    if (modalSubmittingRef.current) return
+    modalSubmittingRef.current = true
+
     const formData = new FormData()
     formData.append("contact", modalContact)
     formData.append("fullName", modalName)
@@ -469,14 +476,18 @@ export function PatientQueue({
     formData.append("gender", modalGender)
     formData.append("reasonForVisit", modalReason)
     formData.append("address", modalPrefill?.address || "Not provided")
+    setFormError("")
     startTransition(async () => {
-      setFormError("")
-      const result = await createVisit(formData)
-      if (result?.error) {
-        setFormError(result.error)
-      } else {
-        closeModal()
-        await loadVisits()
+      try {
+        const result = await createVisit(formData)
+        if (result?.error) {
+          setFormError(result.error)
+        } else {
+          closeModal()
+          await loadVisits()
+        }
+      } finally {
+        modalSubmittingRef.current = false
       }
     })
   }
