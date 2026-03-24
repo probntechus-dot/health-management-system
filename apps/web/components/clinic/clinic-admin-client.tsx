@@ -10,6 +10,7 @@ import {
   setReceptionistDoctors,
 } from "@/actions/clinic-admin"
 import type { ClinicUserRow, ClinicLimits } from "@/actions/clinic-admin"
+import { getCached, setCache, invalidateCachePrefix } from "@/lib/client-cache"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
@@ -393,11 +394,29 @@ export function ClinicAdminClient() {
   const [allocateUser, setAllocateUser] = useState<ClinicUserRow | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
-  const loadData = async () => {
+  const loadData = async (skipCache = false) => {
+    if (!skipCache) {
+      const cachedUsers = getCached<ClinicUserRow[]>("clinic-admin:users")
+      const cachedLimits = getCached<ClinicLimits>("clinic-admin:limits")
+      if (cachedUsers && cachedLimits) {
+        setUsers(cachedUsers)
+        setLimits(cachedLimits)
+        setLoading(false)
+        return
+      }
+    }
     const [u, l] = await Promise.all([getClinicUsers(), getClinicLimits()])
+    setCache("clinic-admin:users", u)
+    setCache("clinic-admin:limits", l)
     setUsers(u)
     setLimits(l)
     setLoading(false)
+  }
+
+  /** Invalidate cache and re-fetch fresh data from DB. */
+  const reloadData = () => {
+    invalidateCachePrefix("clinic-admin:")
+    return loadData(true)
   }
 
   useEffect(() => { loadData() }, [])
@@ -415,7 +434,7 @@ export function ClinicAdminClient() {
     if ("error" in result) {
       setToggleError(result.error)
     }
-    await loadData()
+    await reloadData()
     setTogglingId(null)
   }
 
@@ -560,14 +579,14 @@ export function ClinicAdminClient() {
         open={showAdd}
         onOpenChange={setShowAdd}
         doctors={doctors}
-        onSuccess={loadData}
+        onSuccess={reloadData}
       />
       {editUser && (
         <EditUserDialog
           user={editUser}
           open={!!editUser}
           onOpenChange={(open) => !open && setEditUser(null)}
-          onSuccess={loadData}
+          onSuccess={reloadData}
         />
       )}
       {allocateUser && (
@@ -576,7 +595,7 @@ export function ClinicAdminClient() {
           doctors={doctors}
           open={!!allocateUser}
           onOpenChange={(open) => !open && setAllocateUser(null)}
-          onSuccess={loadData}
+          onSuccess={reloadData}
         />
       )}
     </div>
