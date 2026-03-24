@@ -133,6 +133,17 @@ export async function addUser(data: {
   `
   if (existing.length > 0) return { error: 'This email is already in use' }
 
+  // Validate allocated doctor IDs before starting the transaction
+  if (data.role === 'receptionist' && data.allocatedDoctorIds?.length) {
+    const validDoctors = await appPool<{ id: string }[]>`
+      SELECT id FROM clinic_users
+      WHERE id = ANY(${data.allocatedDoctorIds}) AND clinic_id = ${session.clinicId} AND role = 'doctor' AND is_active = true
+    `
+    const validIds = new Set(validDoctors.map(d => d.id))
+    const invalidIds = data.allocatedDoctorIds.filter(id => !validIds.has(id))
+    if (invalidIds.length > 0) return { error: 'One or more selected doctors are invalid' }
+  }
+
   const passwordHash = await hash(data.password, 12)
 
   try {
@@ -159,7 +170,6 @@ export async function addUser(data: {
           await tx`
             INSERT INTO receptionist_doctors (receptionist_id, doctor_id)
             VALUES (${userId}, ${doctorId})
-            ON CONFLICT DO NOTHING
           `
         }
       }
@@ -185,11 +195,12 @@ export async function updateUser(
 ): Promise<{ success: true } | { error: string }> {
   const session = await requireClinicAdmin()
 
-  // Verify user belongs to this clinic
-  const [user] = await appPool<{ clinic_id: string }[]>`
-    SELECT clinic_id FROM clinic_users WHERE id = ${userId}
+  // Verify user belongs to this clinic and is not a clinic_admin
+  const [user] = await appPool<{ clinic_id: string; role: string }[]>`
+    SELECT clinic_id, role FROM clinic_users WHERE id = ${userId}
   `
   if (!user || user.clinic_id !== session.clinicId) return { error: 'User not found' }
+  if (user.role === 'clinic_admin') return { error: 'Cannot edit admin users from this interface' }
 
   // Validate before touching the DB
   if (data.email) {
@@ -287,6 +298,7 @@ export async function toggleUserActive(
     SELECT clinic_id, role FROM clinic_users WHERE id = ${userId}
   `
   if (!user || user.clinic_id !== session.clinicId) return { error: 'User not found' }
+  if (user.role === 'clinic_admin') return { error: 'Cannot modify admin user status' }
 
   // When reactivating, check limits to prevent bypass
   if (isActive) {

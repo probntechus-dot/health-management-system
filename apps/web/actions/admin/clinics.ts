@@ -165,8 +165,11 @@ export async function deleteClinic(id: string) {
   if (rows.length === 0) return { error: "Clinic not found" }
   const { slug } = rows[0]!
   try {
-    await adminPool`DELETE FROM clinics WHERE id = ${id}`
+    // Drop the tenant schema first — if this fails the clinic row is still
+    // intact and the operation can be retried.  Reversing the order would
+    // leave an orphaned schema when the DROP fails.
     await dropClinicSchema(slug, adminPool)
+    await adminPool`DELETE FROM clinics WHERE id = ${id}`
     deleteClinicEmitter(slug)
     return { success: true }
   } catch (error) {
@@ -219,13 +222,17 @@ export async function updateClinicUser(
   data: { fullName?: string; newPassword?: string }
 ): Promise<{ success: true } | { error: string }> {
   await requireAdmin()
+
+  // Validate all inputs before any writes to prevent partial-apply
+  if (data.newPassword && data.newPassword.length < 8) {
+    return { error: "Password must be at least 8 characters" }
+  }
+
   try {
     if (data.fullName) {
       await adminPool`UPDATE clinic_users SET full_name = ${data.fullName} WHERE id = ${userId}`
     }
     if (data.newPassword) {
-      if (data.newPassword.length < 8)
-        return { error: "Password must be at least 8 characters" }
       const passwordHash = await hash(data.newPassword, 12)
       await adminPool`UPDATE clinic_users SET password_hash = ${passwordHash} WHERE id = ${userId}`
     }

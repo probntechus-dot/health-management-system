@@ -66,6 +66,7 @@ export function ClinicsManager() {
   const [editClinic, setEditClinic] = useState<ClinicRow | null>(null)
   const [usersClinic, setUsersClinic] = useState<ClinicRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ClinicRow | null>(null)
+  const [actionError, setActionError] = useState("")
 
   const load = () => {
     listClinics()
@@ -116,6 +117,12 @@ export function ClinicsManager() {
           onOpenChange={(open) => !open && setDeleteTarget(null)}
           onSuccess={load}
         />
+      )}
+
+      {actionError && (
+        <Alert variant="destructive">
+          <AlertDescription>{actionError}</AlertDescription>
+        </Alert>
       )}
 
       <Card>
@@ -196,8 +203,10 @@ export function ClinicsManager() {
                           variant="ghost"
                           size="icon-sm"
                           onClick={async () => {
-                            await pauseClinic(clinic.id)
-                            load()
+                            setActionError("")
+                            const result = await pauseClinic(clinic.id)
+                            if ("error" in result) setActionError(result.error)
+                            else load()
                           }}
                           title="Pause"
                         >
@@ -209,8 +218,10 @@ export function ClinicsManager() {
                           variant="ghost"
                           size="icon-sm"
                           onClick={async () => {
-                            await resumeClinic(clinic.id)
-                            load()
+                            setActionError("")
+                            const result = await resumeClinic(clinic.id)
+                            if ("error" in result) setActionError(result.error)
+                            else load()
                           }}
                           title="Resume"
                         >
@@ -649,11 +660,18 @@ function DeleteClinicDialog({
 }) {
   const [isPending, startTransition] = useTransition()
 
+  const [error, setError] = useState("")
+
   const handleDelete = () => {
     startTransition(async () => {
-      await deleteClinic(clinic.id)
-      onOpenChange(false)
-      onSuccess()
+      setError("")
+      const result = await deleteClinic(clinic.id)
+      if (result && "error" in result && result.error) {
+        setError(result.error)
+      } else {
+        onOpenChange(false)
+        onSuccess()
+      }
     })
   }
 
@@ -668,6 +686,11 @@ function DeleteClinicDialog({
             the clinic schema and all data. This cannot be undone.
           </DialogDescription>
         </DialogHeader>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

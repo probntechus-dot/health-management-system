@@ -39,8 +39,8 @@ const validateSessionVersion = cache(async (userId: string, cookieVersion: numbe
     if (!rows[0].is_active) return false
     return rows[0].session_version === cookieVersion
   } catch {
-    // If the column doesn't exist yet (pre-migration), allow the session
-    return true
+    // DB errors should deny access, not grant it
+    return false
   }
 })
 

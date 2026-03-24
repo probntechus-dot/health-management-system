@@ -214,8 +214,10 @@ function EditUserDialog({
       const result = await updateUser(user.id, {
         fullName: fd.get("fullName") as string,
         email: fd.get("email") as string,
-        specialization: fd.get("specialization") as string,
-        credentials: fd.get("credentials") as string,
+        ...(user.role === "doctor" && {
+          specialization: fd.get("specialization") as string,
+          credentials: fd.get("credentials") as string,
+        }),
         newPassword: (fd.get("newPassword") as string) || undefined,
       })
       if ("error" in result) {
@@ -300,10 +302,15 @@ function AllocateDialog({
     setSelected(receptionist.allocated_doctor_ids)
   }, [receptionist.allocated_doctor_ids])
 
+  const [error, setError] = useState("")
+
   const handleSave = () => {
     startTransition(async () => {
+      setError("")
       const result = await setReceptionistDoctors(receptionist.id, selected)
-      if ("success" in result) {
+      if ("error" in result) {
+        setError(result.error)
+      } else {
         onOpenChange(false)
         onSuccess()
       }
@@ -343,6 +350,11 @@ function AllocateDialog({
             <p className="text-sm text-muted-foreground text-center py-4">No doctors added yet.</p>
           )}
         </div>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSave} disabled={isPending}>
@@ -394,9 +406,15 @@ export function ClinicAdminClient() {
   const canAddDoctor = limits ? limits.doctor_count < limits.max_doctors : false
   const canAddReceptionist = limits ? limits.receptionist_count < limits.max_receptionists : false
 
+  const [toggleError, setToggleError] = useState("")
+
   const handleToggle = async (userId: string, isActive: boolean) => {
     setTogglingId(userId)
-    await toggleUserActive(userId, isActive)
+    setToggleError("")
+    const result = await toggleUserActive(userId, isActive)
+    if ("error" in result) {
+      setToggleError(result.error)
+    }
     await loadData()
     setTogglingId(null)
   }
@@ -411,7 +429,7 @@ export function ClinicAdminClient() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -425,6 +443,12 @@ export function ClinicAdminClient() {
           Add User
         </Button>
       </div>
+
+      {toggleError && (
+        <Alert variant="destructive">
+          <AlertDescription>{toggleError}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Limits */}
       {limits && (

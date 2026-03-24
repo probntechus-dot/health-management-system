@@ -17,13 +17,28 @@ export async function GET(request: NextRequest) {
 
   let clinicSlug: string
   let userId: string
+  let sessionVersion: number
   try {
-    const session = JSON.parse(raw) as { clinicSlug: string; userId: string }
+    const session = JSON.parse(raw) as { clinicSlug: string; userId: string; sessionVersion?: number }
     clinicSlug = session.clinicSlug
     userId = session.userId
+    sessionVersion = session.sessionVersion ?? 0
     if (!clinicSlug) throw new Error('No clinicSlug in session')
   } catch {
     return new Response('Invalid session', { status: 401 })
+  }
+
+  // Validate session version — reject deactivated or invalidated users
+  try {
+    const { appPool } = await import('@/lib/db/index')
+    const rows = await appPool<{ session_version: number; is_active: boolean }[]>`
+      SELECT session_version, is_active FROM clinic_users WHERE id = ${userId} LIMIT 1
+    `
+    if (!rows[0] || !rows[0].is_active || rows[0].session_version !== sessionVersion) {
+      return new Response('Session expired', { status: 401 })
+    }
+  } catch {
+    return new Response('Session validation failed', { status: 500 })
   }
 
   // Rate limit SSE connections: max 5 per minute per user
