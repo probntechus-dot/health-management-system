@@ -746,10 +746,10 @@ function ClinicUsersDialog({ clinic, cachedUsers, onUsersLoaded, onOpenChange }:
             </Button>
           </div>
         </DialogHeader>
-        {loading ? (
-          <div className="py-4 text-center text-muted-foreground">Loading...</div>
-        ) : (
-          <div className="max-h-[60vh] overflow-y-auto">
+        <div className="max-h-[70vh] overflow-y-auto">
+          {loading ? (
+            <div className="py-4 text-center text-muted-foreground">Loading...</div>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -815,22 +815,22 @@ function ClinicUsersDialog({ clinic, cachedUsers, onUsersLoaded, onOpenChange }:
                 )}
               </TableBody>
             </Table>
-          </div>
-        )}
+          )}
 
-        {editUser && (
-          <EditUserInline
-            user={editUser}
-            onDone={() => { setEditUser(null); reload() }}
-          />
-        )}
+          {editUser && (
+            <EditUserInline
+              user={editUser}
+              onDone={() => { setEditUser(null); reload() }}
+            />
+          )}
 
-        {showAddUser && (
-          <AddUserInline
-            clinicId={clinic.id}
-            onDone={() => { setShowAddUser(false); reload() }}
-          />
-        )}
+          {showAddUser && (
+            <AddUserInline
+              clinicId={clinic.id}
+              onDone={() => { setShowAddUser(false); reload() }}
+            />
+          )}
+        </div>
       </DialogContent>
 
       <AlertDialog
