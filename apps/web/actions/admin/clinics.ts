@@ -29,6 +29,7 @@ export type AddClinicInput = {
   adminFullName: string
   adminEmail: string
   adminPassword: string
+  plan?: "active" | "trial"
 }
 
 export type ClinicUserRow = {
@@ -39,6 +40,7 @@ export type ClinicUserRow = {
   specialization: string | null
   credentials: string | null
   is_active: boolean
+  display_password: string | null
 }
 
 // ── DB migration (idempotent) ────────────────────────────────────────────────
@@ -54,7 +56,8 @@ export async function runClinicsMigration() {
   await adminPool`
     ALTER TABLE clinic_users
       ADD COLUMN IF NOT EXISTS specialization    TEXT,
-      ADD COLUMN IF NOT EXISTS session_version   INTEGER NOT NULL DEFAULT 0
+      ADD COLUMN IF NOT EXISTS session_version   INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS display_password  TEXT
   `
   // Ensure clinic_app has the required DML permissions on platform tables
   await adminPool.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON clinic_users TO clinic_app`)
@@ -88,7 +91,7 @@ export async function listClinics(): Promise<ClinicRow[]> {
 export async function addClinic(input: AddClinicInput) {
   await requireAdmin()
 
-  const { name, slug, adminFullName, adminEmail, adminPassword, maxDoctors = 5, maxReceptionists = 5 } = input
+  const { name, slug, adminFullName, adminEmail, adminPassword, maxDoctors = 5, maxReceptionists = 5, plan = "active" } = input
 
   if (!/^[a-z0-9_]+$/.test(slug))
     return { error: "Slug must be lowercase letters, numbers, and underscores only" }
@@ -109,16 +112,18 @@ export async function addClinic(input: AddClinicInput) {
   const adminHash = await hash(adminPassword, 12)
 
   try {
+    const trialExpiresAt = plan === "trial" ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null
+
     const clinic = await adminPool<{ id: string }[]>`
-      INSERT INTO clinics (slug, name, status, max_doctors, max_receptionists)
-      VALUES (${slug}, ${name}, 'active', ${maxDoctors}, ${maxReceptionists})
+      INSERT INTO clinics (slug, name, status, max_doctors, max_receptionists, plan, trial_expires_at)
+      VALUES (${slug}, ${name}, 'active', ${maxDoctors}, ${maxReceptionists}, ${plan}, ${trialExpiresAt})
       RETURNING id
     `
     const clinicId = clinic[0]!.id
 
     await adminPool`
-      INSERT INTO clinic_users (clinic_id, email, password_hash, role, full_name)
-      VALUES (${clinicId}, ${adminEmail}, ${adminHash}, 'clinic_admin', ${adminFullName})
+      INSERT INTO clinic_users (clinic_id, email, password_hash, role, full_name, display_password)
+      VALUES (${clinicId}, ${adminEmail}, ${adminHash}, 'clinic_admin', ${adminFullName}, ${adminPassword})
     `
     await createClinicSchema(slug, adminPool)
 
@@ -207,7 +212,7 @@ export async function listClinicUsers(
 ): Promise<ClinicUserRow[]> {
   await requireAdmin()
   const rows = await adminPool<ClinicUserRow[]>`
-    SELECT id, full_name, email, role, specialization, credentials, is_active
+    SELECT id, full_name, email, role, specialization, credentials, is_active, display_password
     FROM clinic_users
     WHERE clinic_id = ${clinicId}
     ORDER BY
@@ -223,19 +228,45 @@ export async function updateClinicUser(
 ): Promise<{ success: true } | { error: string }> {
   await requireAdmin()
 
-  // Validate all inputs before any writes to prevent partial-apply
   if (data.newPassword && data.newPassword.length < 8) {
     return { error: "Password must be at least 8 characters" }
   }
 
+  let passwordHash: string | null = null
+  if (data.newPassword) {
+    passwordHash = await hash(data.newPassword, 12)
+  }
+
   try {
-    if (data.fullName) {
-      await adminPool`UPDATE clinic_users SET full_name = ${data.fullName} WHERE id = ${userId}`
-    }
-    if (data.newPassword) {
-      const passwordHash = await hash(data.newPassword, 12)
-      await adminPool`UPDATE clinic_users SET password_hash = ${passwordHash} WHERE id = ${userId}`
-    }
+    await adminPool`
+      UPDATE clinic_users SET
+        full_name        = COALESCE(${data.fullName || null}, full_name),
+        password_hash    = COALESCE(${passwordHash}, password_hash),
+        display_password = COALESCE(${data.newPassword || null}, display_password),
+        session_version  = CASE WHEN ${passwordHash !== null} THEN session_version + 1 ELSE session_version END
+      WHERE id = ${userId}
+    `
+    return { success: true }
+  } catch (error) {
+    return { error: getErrorMessage(error) }
+  }
+}
+
+// ── Toggle clinic user active/inactive (platform admin) ─────────────────────
+
+export async function toggleClinicUserActive(
+  userId: string,
+  isActive: boolean
+): Promise<{ success: true } | { error: string }> {
+  await requireAdmin()
+
+  const [user] = await adminPool<{ id: string; role: string }[]>`
+    SELECT id, role FROM clinic_users WHERE id = ${userId}
+  `
+  if (!user) return { error: "User not found" }
+
+  try {
+    await adminPool`UPDATE clinic_users SET is_active = ${isActive} WHERE id = ${userId}`
     return { success: true }
   } catch (error) {
     return { error: getErrorMessage(error) }

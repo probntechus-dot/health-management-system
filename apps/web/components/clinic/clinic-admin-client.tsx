@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useTransition } from "react"
+import { useState, useEffect, useTransition, useMemo } from "react"
 import {
   getClinicUsers,
   getClinicLimits,
@@ -11,6 +11,7 @@ import {
 } from "@/actions/clinic-admin"
 import type { ClinicUserRow, ClinicLimits } from "@/actions/clinic-admin"
 import { getCached, setCache, invalidateCachePrefix } from "@/lib/client-cache"
+import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
@@ -29,6 +30,16 @@ import {
   DialogFooter,
 } from "@workspace/ui/components/dialog"
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@workspace/ui/components/alert-dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -43,6 +54,12 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group"
 import { Badge } from "@workspace/ui/components/badge"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import { Skeleton } from "@workspace/ui/components/skeleton"
@@ -55,7 +72,67 @@ import {
   StethoscopeIcon,
   UserIcon,
   CheckIcon,
+  EyeIcon,
+  EyeOffIcon,
+  SearchIcon,
 } from "lucide-react"
+
+// ── Password Input (InputGroup-based) ─────────────────────────────────────────
+
+function PasswordInput(props: Omit<React.ComponentProps<"input">, "type">) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <InputGroup>
+      <InputGroupInput {...props} type={visible ? "text" : "password"} />
+      <InputGroupAddon align="inline-end">
+        <InputGroupButton
+          size="icon-sm"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? "Hide password" : "Show password"}
+        >
+          {visible ? <EyeOffIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
+        </InputGroupButton>
+      </InputGroupAddon>
+    </InputGroup>
+  )
+}
+
+// ── Password Cell (table display) ─────────────────────────────────────────────
+
+function PasswordCell({ password }: { password: string | null }) {
+  const [visible, setVisible] = useState(false)
+  if (!password) return <span className="text-muted-foreground text-xs">—</span>
+  return (
+    <div className="flex items-center gap-1">
+      <span className="font-mono text-xs">
+        {visible ? password : "••••••••"}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? "Hide password" : "Show password"}
+      >
+        {visible ? <EyeOffIcon className="size-3" /> : <EyeIcon className="size-3" />}
+      </Button>
+    </div>
+  )
+}
+
+// ── Role Badge ────────────────────────────────────────────────────────────────
+
+function RoleBadge({ role }: { role: string }) {
+  switch (role) {
+    case "clinic_admin":
+      return <Badge variant="default" className="gap-1"><ShieldCheckIcon className="size-3" />Admin</Badge>
+    case "doctor":
+      return <Badge variant="secondary" className="gap-1"><StethoscopeIcon className="size-3" />Doctor</Badge>
+    case "receptionist":
+      return <Badge variant="outline" className="gap-1"><UserIcon className="size-3" />Receptionist</Badge>
+    default:
+      return <Badge variant="outline">{role}</Badge>
+  }
+}
 
 // ── Add User Dialog ──────────────────────────────────────────────────────────
 
@@ -96,6 +173,7 @@ function AddUserDialog({
         setError("")
         setRole("doctor")
         setSelectedDoctors([])
+        toast.success("User added successfully")
         onSuccess()
       }
     })
@@ -130,7 +208,7 @@ function AddUserDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" required minLength={8} placeholder="Min 8 characters" />
+            <PasswordInput id="password" name="password" required minLength={8} placeholder="Min 8 characters" />
           </div>
           {role === "doctor" && (
             <>
@@ -225,6 +303,7 @@ function EditUserDialog({
         setError(result.error)
       } else {
         onOpenChange(false)
+        toast.success("User updated successfully")
         onSuccess()
       }
     })
@@ -259,7 +338,7 @@ function EditUserDialog({
           )}
           <div className="space-y-2">
             <Label htmlFor="editPw">New Password (leave blank to keep current)</Label>
-            <Input id="editPw" name="newPassword" type="password" placeholder="Min 8 characters" />
+            <PasswordInput id="editPw" name="newPassword" placeholder="Min 8 characters" />
           </div>
           {error && (
             <Alert variant="destructive">
@@ -313,6 +392,7 @@ function AllocateDialog({
         setError(result.error)
       } else {
         onOpenChange(false)
+        toast.success("Doctor allocations updated")
         onSuccess()
       }
     })
@@ -368,21 +448,6 @@ function AllocateDialog({
   )
 }
 
-// ── Role Badge ───────────────────────────────────────────────────────────────
-
-function RoleBadge({ role }: { role: string }) {
-  switch (role) {
-    case "clinic_admin":
-      return <Badge variant="default" className="gap-1"><ShieldCheckIcon className="size-3" />Admin</Badge>
-    case "doctor":
-      return <Badge variant="secondary" className="gap-1"><StethoscopeIcon className="size-3" />Doctor</Badge>
-    case "receptionist":
-      return <Badge variant="outline" className="gap-1"><UserIcon className="size-3" />Receptionist</Badge>
-    default:
-      return <Badge variant="outline">{role}</Badge>
-  }
-}
-
 // ── Main Component ───────────────────────────────────────────────────────────
 
 export function ClinicAdminClient() {
@@ -393,6 +458,8 @@ export function ClinicAdminClient() {
   const [editUser, setEditUser] = useState<ClinicUserRow | null>(null)
   const [allocateUser, setAllocateUser] = useState<ClinicUserRow | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [search, setSearch] = useState("")
+  const [deactivateTarget, setDeactivateTarget] = useState<ClinicUserRow | null>(null)
 
   const loadData = async (skipCache = false) => {
     if (!skipCache) {
@@ -413,7 +480,6 @@ export function ClinicAdminClient() {
     setLoading(false)
   }
 
-  /** Invalidate cache and re-fetch fresh data from DB. */
   const reloadData = () => {
     invalidateCachePrefix("clinic-admin:")
     return loadData(true)
@@ -425,14 +491,34 @@ export function ClinicAdminClient() {
   const canAddDoctor = limits ? limits.doctor_count < limits.max_doctors : false
   const canAddReceptionist = limits ? limits.receptionist_count < limits.max_receptionists : false
 
-  const [toggleError, setToggleError] = useState("")
+  const filteredUsers = useMemo(() => {
+    if (!search.trim()) return users
+    const q = search.toLowerCase()
+    return users.filter(
+      (u) =>
+        u.full_name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        u.role.toLowerCase().includes(q)
+    )
+  }, [users, search])
 
-  const handleToggle = async (userId: string, isActive: boolean) => {
+  const handleToggle = async (user: ClinicUserRow) => {
+    // Deactivating requires confirmation
+    if (user.is_active) {
+      setDeactivateTarget(user)
+      return
+    }
+    // Activating proceeds directly
+    await executeToggle(user.id, true)
+  }
+
+  const executeToggle = async (userId: string, isActive: boolean) => {
     setTogglingId(userId)
-    setToggleError("")
     const result = await toggleUserActive(userId, isActive)
     if ("error" in result) {
-      setToggleError(result.error)
+      toast.error(result.error)
+    } else {
+      toast.success(isActive ? "User activated" : "User deactivated")
     }
     await reloadData()
     setTogglingId(null)
@@ -463,12 +549,6 @@ export function ClinicAdminClient() {
         </Button>
       </div>
 
-      {toggleError && (
-        <Alert variant="destructive">
-          <AlertDescription>{toggleError}</AlertDescription>
-        </Alert>
-      )}
-
       {/* Limits */}
       {limits && (
         <div className="grid grid-cols-2 gap-4">
@@ -489,11 +569,20 @@ export function ClinicAdminClient() {
 
       {/* Users Table */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex-row items-center justify-between gap-4">
           <CardTitle className="flex items-center gap-2">
             <UsersIcon className="size-5" />
             Clinic Users
           </CardTitle>
+          <div className="relative w-64">
+            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search users..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8 h-8"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -502,21 +591,31 @@ export function ClinicAdminClient() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Password</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="!overflow-visible !whitespace-normal">
                     <div className="font-medium">{user.full_name}</div>
                     {user.specialization && (
                       <div className="text-xs text-muted-foreground">{user.specialization}</div>
                     )}
+                    {user.role === "receptionist" && user.allocated_doctor_ids.length > 0 && (
+                      <Badge variant="outline" className="mt-1 text-xs gap-1">
+                        <StethoscopeIcon className="size-2.5" />
+                        {user.allocated_doctor_ids.length} doctor{user.allocated_doctor_ids.length > 1 ? "s" : ""}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{user.email}</TableCell>
                   <TableCell><RoleBadge role={user.role} /></TableCell>
+                  <TableCell>
+                    <PasswordCell password={user.display_password} />
+                  </TableCell>
                   <TableCell>
                     {user.is_active ? (
                       <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-200">
@@ -551,7 +650,7 @@ export function ClinicAdminClient() {
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            onClick={() => handleToggle(user.id, !user.is_active)}
+                            onClick={() => handleToggle(user)}
                             disabled={togglingId === user.id}
                             title={user.is_active ? "Deactivate" : "Activate"}
                           >
@@ -569,6 +668,13 @@ export function ClinicAdminClient() {
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredUsers.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    {search ? "No users match your search." : "No users found."}
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -598,6 +704,36 @@ export function ClinicAdminClient() {
           onSuccess={reloadData}
         />
       )}
+
+      {/* Deactivation Confirmation */}
+      <AlertDialog
+        open={!!deactivateTarget}
+        onOpenChange={(open) => !open && setDeactivateTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate {deactivateTarget?.full_name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will immediately revoke their access. They will be logged out of all sessions.
+              You can reactivate them later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deactivateTarget) {
+                  executeToggle(deactivateTarget.id, false)
+                  setDeactivateTarget(null)
+                }
+              }}
+            >
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

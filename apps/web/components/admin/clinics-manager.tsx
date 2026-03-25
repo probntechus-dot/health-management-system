@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useTransition } from "react"
+import { useState, useEffect, useTransition, useMemo } from "react"
+import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
@@ -37,6 +38,12 @@ import {
 } from "@workspace/ui/components/select"
 import { Textarea } from "@workspace/ui/components/textarea"
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group"
+import {
   listClinics,
   addClinic,
   pauseClinic,
@@ -45,8 +52,8 @@ import {
   setClinicPlan,
   listClinicUsers,
   updateClinicUser,
+  toggleClinicUserActive,
   type ClinicRow,
-  type AddClinicInput,
   type ClinicUserRow,
 } from "@/actions/admin/clinics"
 import {
@@ -57,7 +64,93 @@ import {
   Trash2Icon,
   PencilIcon,
   UsersIcon,
+  SearchIcon,
+  EyeIcon,
+  EyeOffIcon,
+  ShieldCheckIcon,
+  StethoscopeIcon,
+  UserIcon,
+  CheckIcon,
+  ClockIcon,
 } from "lucide-react"
+
+// ── Password Input (InputGroup-based) ─────────────────────────────────────────
+
+function PasswordInput({ value, onChange, ...props }: React.ComponentProps<"input"> & { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <InputGroup>
+      <InputGroupInput {...props} value={value} onChange={onChange} type={visible ? "text" : "password"} />
+      <InputGroupAddon align="inline-end">
+        <InputGroupButton
+          size="icon-sm"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? "Hide password" : "Show password"}
+        >
+          {visible ? <EyeOffIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
+        </InputGroupButton>
+      </InputGroupAddon>
+    </InputGroup>
+  )
+}
+
+// ── Password Cell (table display) ─────────────────────────────────────────────
+
+function PasswordCell({ password }: { password: string | null }) {
+  const [visible, setVisible] = useState(false)
+  if (!password) return <span className="text-muted-foreground text-xs">—</span>
+  return (
+    <div className="flex items-center gap-1">
+      <span className="font-mono text-xs">
+        {visible ? password : "••••••••"}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? "Hide password" : "Show password"}
+      >
+        {visible ? <EyeOffIcon className="size-3" /> : <EyeIcon className="size-3" />}
+      </Button>
+    </div>
+  )
+}
+
+// ── Role Badge ────────────────────────────────────────────────────────────────
+
+function RoleBadge({ role }: { role: string }) {
+  switch (role) {
+    case "clinic_admin":
+      return <Badge variant="default" className="gap-1"><ShieldCheckIcon className="size-3" />Admin</Badge>
+    case "doctor":
+      return <Badge variant="secondary" className="gap-1"><StethoscopeIcon className="size-3" />Doctor</Badge>
+    case "receptionist":
+      return <Badge variant="outline" className="gap-1"><UserIcon className="size-3" />Receptionist</Badge>
+    default:
+      return <Badge variant="outline">{role}</Badge>
+  }
+}
+
+// ── Trial Days Badge ──────────────────────────────────────────────────────────
+
+function TrialBadge({ expiresAt }: { expiresAt: string | null }) {
+  if (!expiresAt) return null
+  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  if (days < 0) {
+    return <Badge variant="destructive" className="gap-1 text-xs"><ClockIcon className="size-3" />Expired</Badge>
+  }
+  return (
+    <Badge
+      variant={days <= 7 ? "destructive" : "secondary"}
+      className="gap-1 text-xs"
+    >
+      <ClockIcon className="size-3" />
+      {days}d left
+    </Badge>
+  )
+}
+
+// ── Main Component ───────────────────────────────────────────────────────────
 
 export function ClinicsManager() {
   const [clinics, setClinics] = useState<ClinicRow[]>([])
@@ -66,7 +159,7 @@ export function ClinicsManager() {
   const [editClinic, setEditClinic] = useState<ClinicRow | null>(null)
   const [usersClinic, setUsersClinic] = useState<ClinicRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ClinicRow | null>(null)
-  const [actionError, setActionError] = useState("")
+  const [search, setSearch] = useState("")
 
   const load = () => {
     listClinics()
@@ -81,9 +174,28 @@ export function ClinicsManager() {
     load()
   }, [])
 
+  const filtered = useMemo(() => {
+    if (!search.trim()) return clinics
+    const q = search.toLowerCase()
+    return clinics.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.slug.toLowerCase().includes(q)
+    )
+  }, [clinics, search])
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-4">
+        <div className="relative w-64">
+          <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Search clinics..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 h-8"
+          />
+        </div>
         <Button size="sm" onClick={() => setShowAdd(true)}>
           <PlusIcon />
           Add Clinic
@@ -119,12 +231,6 @@ export function ClinicsManager() {
         />
       )}
 
-      {actionError && (
-        <Alert variant="destructive">
-          <AlertDescription>{actionError}</AlertDescription>
-        </Alert>
-      )}
-
       <Card>
         {loading ? (
           <CardContent className="py-8 text-center text-muted-foreground">
@@ -135,16 +241,16 @@ export function ClinicsManager() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[22%]">Name</TableHead>
-                <TableHead className="w-[15%]">Slug</TableHead>
+                <TableHead className="w-[12%]">Slug</TableHead>
                 <TableHead className="w-[10%]">Status</TableHead>
-                <TableHead className="w-[10%]">Plan</TableHead>
-                <TableHead className="w-[8%]">Users</TableHead>
-                <TableHead className="w-[15%]">Created</TableHead>
-                <TableHead className="w-[20%] text-right">Actions</TableHead>
+                <TableHead className="w-[15%]">Plan</TableHead>
+                <TableHead className="w-[6%]">Users</TableHead>
+                <TableHead className="w-[12%]">Created</TableHead>
+                <TableHead className="w-[23%] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clinics.map((clinic) => (
+              {filtered.map((clinic) => (
                 <TableRow key={clinic.id}>
                   <TableCell className="font-medium">{clinic.name}</TableCell>
                   <TableCell className="font-mono text-xs">
@@ -164,17 +270,22 @@ export function ClinicsManager() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={
-                        clinic.plan === "active"
-                          ? "default"
-                          : clinic.plan === "trial"
-                            ? "secondary"
-                            : "destructive"
-                      }
-                    >
-                      {clinic.plan}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge
+                        variant={
+                          clinic.plan === "active"
+                            ? "default"
+                            : clinic.plan === "trial"
+                              ? "secondary"
+                              : "destructive"
+                        }
+                      >
+                        {clinic.plan}
+                      </Badge>
+                      {clinic.plan === "trial" && (
+                        <TrialBadge expiresAt={clinic.trial_expires_at} />
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>{clinic.user_count}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
@@ -203,10 +314,9 @@ export function ClinicsManager() {
                           variant="ghost"
                           size="icon-sm"
                           onClick={async () => {
-                            setActionError("")
                             const result = await pauseClinic(clinic.id)
-                            if ("error" in result) setActionError(result.error)
-                            else load()
+                            if ("error" in result) toast.error(result.error)
+                            else { toast.success("Clinic paused"); load() }
                           }}
                           title="Pause"
                         >
@@ -218,10 +328,9 @@ export function ClinicsManager() {
                           variant="ghost"
                           size="icon-sm"
                           onClick={async () => {
-                            setActionError("")
                             const result = await resumeClinic(clinic.id)
-                            if ("error" in result) setActionError(result.error)
-                            else load()
+                            if ("error" in result) toast.error(result.error)
+                            else { toast.success("Clinic resumed"); load() }
                           }}
                           title="Resume"
                         >
@@ -241,6 +350,13 @@ export function ClinicsManager() {
                   </TableCell>
                 </TableRow>
               ))}
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    {search ? "No clinics match your search." : "No clinics found."}
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         )}
@@ -267,6 +383,7 @@ function AddClinicDialog({
   const [adminPw, setAdminPw] = useState("")
   const [maxDoctors, setMaxDoctors] = useState("5")
   const [maxReceptionists, setMaxReceptionists] = useState("5")
+  const [plan, setPlan] = useState<"active" | "trial">("active")
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
 
@@ -282,6 +399,7 @@ function AddClinicDialog({
         adminPassword: adminPw,
         maxDoctors: parseInt(maxDoctors) || 5,
         maxReceptionists: parseInt(maxReceptionists) || 5,
+        plan,
       })
       if ("error" in result) {
         setError(result.error as string)
@@ -294,6 +412,8 @@ function AddClinicDialog({
         setAdminPw("")
         setMaxDoctors("5")
         setMaxReceptionists("5")
+        setPlan("active")
+        toast.success("Clinic created successfully")
         onSuccess()
       }
     })
@@ -333,6 +453,18 @@ function AddClinicDialog({
               pattern="^[a-z][a-z0-9_]*$"
             />
           </div>
+          <div className="space-y-1.5">
+            <Label>Plan</Label>
+            <Select value={plan} onValueChange={(v) => setPlan(v as typeof plan)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="trial">Trial (30 days)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <p className="pt-2 text-xs font-semibold text-muted-foreground">
             Clinic Admin Account
           </p>
@@ -349,11 +481,10 @@ function AddClinicDialog({
             type="email"
             placeholder="Admin email"
           />
-          <Input
+          <PasswordInput
             value={adminPw}
             onChange={(e) => setAdminPw(e.target.value)}
             required
-            type="password"
             placeholder="Password (min 8)"
             minLength={8}
           />
@@ -427,6 +558,15 @@ function EditClinicDialog({
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
 
+  // Auto-set 30-day trial when switching to trial plan
+  const handlePlanChange = (newPlan: typeof plan) => {
+    setPlan(newPlan)
+    if (newPlan === "trial" && !trialExpires) {
+      const d = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      setTrialExpires(d.toISOString().split("T")[0]!)
+    }
+  }
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -441,6 +581,7 @@ function EditClinicDialog({
         setError(result.error)
       } else {
         onOpenChange(false)
+        toast.success("Plan updated")
         onSuccess()
       }
     })
@@ -455,7 +596,7 @@ function EditClinicDialog({
         <form onSubmit={handleSave} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Plan</Label>
-            <Select value={plan} onValueChange={(v) => setPlan(v as typeof plan)}>
+            <Select value={plan} onValueChange={(v) => handlePlanChange(v as typeof plan)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -521,6 +662,9 @@ function ClinicUsersDialog({
   const [users, setUsers] = useState<ClinicUserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [editUser, setEditUser] = useState<ClinicUserRow | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  const reload = () => listClinicUsers(clinic.id).then(setUsers)
 
   useEffect(() => {
     listClinicUsers(clinic.id).then((data) => {
@@ -529,9 +673,21 @@ function ClinicUsersDialog({
     })
   }, [clinic.id])
 
+  const handleToggle = async (user: ClinicUserRow) => {
+    setTogglingId(user.id)
+    const result = await toggleClinicUserActive(user.id, !user.is_active)
+    if ("error" in result) {
+      toast.error(result.error)
+    } else {
+      toast.success(user.is_active ? "User deactivated" : "User activated")
+    }
+    await reload()
+    setTogglingId(null)
+  }
+
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Users — {clinic.name}</DialogTitle>
         </DialogHeader>
@@ -540,36 +696,73 @@ function ClinicUsersDialog({
             Loading...
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>{user.full_name}</TableCell>
-                  <TableCell className="text-xs">{user.email}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{user.role}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => setEditUser(user)}
-                    >
-                      <PencilIcon />
-                    </Button>
-                  </TableCell>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Password</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.full_name}</TableCell>
+                    <TableCell className="text-xs">{user.email}</TableCell>
+                    <TableCell><RoleBadge role={user.role} /></TableCell>
+                    <TableCell><PasswordCell password={user.display_password} /></TableCell>
+                    <TableCell>
+                      {user.is_active ? (
+                        <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-200">
+                          <CheckIcon className="size-3" />Active
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">Inactive</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex gap-1 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => setEditUser(user)}
+                          title="Edit"
+                        >
+                          <PencilIcon />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => handleToggle(user)}
+                          disabled={togglingId === user.id}
+                          title={user.is_active ? "Deactivate" : "Activate"}
+                        >
+                          {togglingId === user.id ? (
+                            <Loader2Icon className="animate-spin" />
+                          ) : user.is_active ? (
+                            <span className="text-destructive text-xs font-medium">Off</span>
+                          ) : (
+                            <span className="text-emerald-600 text-xs font-medium">On</span>
+                          )}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {users.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      No users found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         )}
 
         {editUser && (
@@ -577,7 +770,7 @@ function ClinicUsersDialog({
             user={editUser}
             onDone={() => {
               setEditUser(null)
-              listClinicUsers(clinic.id).then(setUsers)
+              reload()
             }}
           />
         )}
@@ -608,6 +801,7 @@ function EditUserInline({
       if ("error" in result) {
         setError(result.error)
       } else {
+        toast.success("User updated")
         onDone()
       }
     })
@@ -622,8 +816,7 @@ function EditUserInline({
       </div>
       <div className="space-y-1.5">
         <Label>New Password</Label>
-        <Input
-          type="password"
+        <PasswordInput
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           placeholder="Leave blank to keep current"
@@ -670,6 +863,7 @@ function DeleteClinicDialog({
         setError(result.error)
       } else {
         onOpenChange(false)
+        toast.success("Clinic deleted")
         onSuccess()
       }
     })

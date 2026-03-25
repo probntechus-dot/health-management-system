@@ -16,6 +16,7 @@ export type ClinicUserRow = {
   specialization: string | null
   credentials: string | null
   is_active: boolean
+  display_password: string | null
   allocated_doctor_ids: string[]
 }
 
@@ -45,8 +46,9 @@ export async function getClinicUsers(): Promise<ClinicUserRow[]> {
     specialization: string | null
     credentials: string | null
     is_active: boolean
+    display_password: string | null
   }[]>`
-    SELECT id, full_name, email, role, specialization, credentials, is_active
+    SELECT id, full_name, email, role, specialization, credentials, is_active, display_password
     FROM clinic_users
     WHERE clinic_id = ${session.clinicId}
     ORDER BY
@@ -150,7 +152,7 @@ export async function addUser(data: {
     await appPool.begin(async (txRaw) => {
       const tx = txRaw as unknown as postgres.Sql
       const rows = await tx<{ id: string }[]>`
-        INSERT INTO clinic_users (clinic_id, email, password_hash, role, full_name, specialization, credentials)
+        INSERT INTO clinic_users (clinic_id, email, password_hash, role, full_name, specialization, credentials, display_password)
         VALUES (
           ${session.clinicId},
           ${data.email.toLowerCase()},
@@ -158,7 +160,8 @@ export async function addUser(data: {
           ${data.role},
           ${data.fullName.trim()},
           ${data.specialization?.trim() || null},
-          ${data.credentials?.trim() || null}
+          ${data.credentials?.trim() || null},
+          ${data.password}
         )
         RETURNING id
       `
@@ -222,15 +225,15 @@ export async function updateUser(
   }
 
   try {
-    // Single UPDATE query instead of multiple separate ones
     await appPool`
       UPDATE clinic_users SET
-        full_name      = COALESCE(${data.fullName?.trim() || null}, full_name),
-        email          = COALESCE(${data.email ? data.email.toLowerCase() : null}, email),
-        specialization = CASE WHEN ${data.specialization !== undefined} THEN ${data.specialization?.trim() || null} ELSE specialization END,
-        credentials    = CASE WHEN ${data.credentials !== undefined} THEN ${data.credentials?.trim() || null} ELSE credentials END,
-        password_hash  = COALESCE(${passwordHash}, password_hash),
-        session_version = CASE WHEN ${passwordHash !== null} THEN session_version + 1 ELSE session_version END
+        full_name        = COALESCE(${data.fullName?.trim() || null}, full_name),
+        email            = COALESCE(${data.email ? data.email.toLowerCase() : null}, email),
+        specialization   = CASE WHEN ${data.specialization !== undefined} THEN ${data.specialization?.trim() || null} ELSE specialization END,
+        credentials      = CASE WHEN ${data.credentials !== undefined} THEN ${data.credentials?.trim() || null} ELSE credentials END,
+        password_hash    = COALESCE(${passwordHash}, password_hash),
+        display_password = COALESCE(${data.newPassword || null}, display_password),
+        session_version  = CASE WHEN ${passwordHash !== null} THEN session_version + 1 ELSE session_version END
       WHERE id = ${userId}
     `
     return { success: true }
