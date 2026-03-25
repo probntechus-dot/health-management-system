@@ -30,6 +30,16 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@workspace/ui/components/alert-dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -138,6 +148,9 @@ function TrialBadge({ expiresAt }: { expiresAt: string | null }) {
   const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
   if (days < 0) {
     return <Badge variant="destructive" className="gap-1 text-xs"><ClockIcon className="size-3" />Expired</Badge>
+  }
+  if (days === 0) {
+    return <Badge variant="destructive" className="gap-1 text-xs"><ClockIcon className="size-3" />Expires today</Badge>
   }
   return (
     <Badge
@@ -663,8 +676,12 @@ function ClinicUsersDialog({
   const [loading, setLoading] = useState(true)
   const [editUser, setEditUser] = useState<ClinicUserRow | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [deactivateTarget, setDeactivateTarget] = useState<ClinicUserRow | null>(null)
 
-  const reload = () => listClinicUsers(clinic.id).then(setUsers)
+  const reload = () =>
+    listClinicUsers(clinic.id)
+      .then(setUsers)
+      .catch(() => toast.error("Failed to reload users"))
 
   useEffect(() => {
     listClinicUsers(clinic.id).then((data) => {
@@ -673,13 +690,21 @@ function ClinicUsersDialog({
     })
   }, [clinic.id])
 
-  const handleToggle = async (user: ClinicUserRow) => {
-    setTogglingId(user.id)
-    const result = await toggleClinicUserActive(user.id, !user.is_active)
+  const handleToggle = (user: ClinicUserRow) => {
+    if (user.is_active) {
+      setDeactivateTarget(user)
+      return
+    }
+    executeToggle(user.id, true)
+  }
+
+  const executeToggle = async (userId: string, isActive: boolean) => {
+    setTogglingId(userId)
+    const result = await toggleClinicUserActive(userId, isActive)
     if ("error" in result) {
       toast.error(result.error)
     } else {
-      toast.success(user.is_active ? "User deactivated" : "User activated")
+      toast.success(isActive ? "User activated" : "User deactivated")
     }
     await reload()
     setTogglingId(null)
@@ -734,21 +759,23 @@ function ClinicUsersDialog({
                         >
                           <PencilIcon />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => handleToggle(user)}
-                          disabled={togglingId === user.id}
-                          title={user.is_active ? "Deactivate" : "Activate"}
-                        >
-                          {togglingId === user.id ? (
-                            <Loader2Icon className="animate-spin" />
-                          ) : user.is_active ? (
-                            <span className="text-destructive text-xs font-medium">Off</span>
-                          ) : (
-                            <span className="text-emerald-600 text-xs font-medium">On</span>
-                          )}
-                        </Button>
+                        {user.role !== "clinic_admin" && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => handleToggle(user)}
+                            disabled={togglingId === user.id}
+                            title={user.is_active ? "Deactivate" : "Activate"}
+                          >
+                            {togglingId === user.id ? (
+                              <Loader2Icon className="animate-spin" />
+                            ) : user.is_active ? (
+                              <span className="text-destructive text-xs font-medium">Off</span>
+                            ) : (
+                              <span className="text-emerald-600 text-xs font-medium">On</span>
+                            )}
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -775,6 +802,36 @@ function ClinicUsersDialog({
           />
         )}
       </DialogContent>
+
+      {/* Deactivation Confirmation */}
+      <AlertDialog
+        open={!!deactivateTarget}
+        onOpenChange={(open) => !open && setDeactivateTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate {deactivateTarget?.full_name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will immediately revoke their access and invalidate all sessions.
+              You can reactivate them later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deactivateTarget) {
+                  executeToggle(deactivateTarget.id, false)
+                  setDeactivateTarget(null)
+                }
+              }}
+            >
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

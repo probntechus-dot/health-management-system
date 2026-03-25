@@ -264,9 +264,13 @@ export async function toggleClinicUserActive(
     SELECT id, role FROM clinic_users WHERE id = ${userId}
   `
   if (!user) return { error: "User not found" }
+  if (user.role === "clinic_admin") return { error: "Cannot modify clinic admin status from here" }
 
   try {
     await adminPool`UPDATE clinic_users SET is_active = ${isActive} WHERE id = ${userId}`
+    if (!isActive) {
+      await adminPool`UPDATE clinic_users SET session_version = session_version + 1 WHERE id = ${userId}`
+    }
     return { success: true }
   } catch (error) {
     return { error: getErrorMessage(error) }
