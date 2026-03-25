@@ -39,6 +39,8 @@ export async function login(formData: FormData) {
     clinic_id:       string
     clinic_slug:     string
     clinic_status:   string
+    clinic_plan:     string
+    trial_expires_at: string | null
   }[]>`
     SELECT
       cu.id,
@@ -51,7 +53,9 @@ export async function login(formData: FormData) {
       cu.is_active,
       cu.clinic_id,
       c.slug   AS clinic_slug,
-      c.status AS clinic_status
+      c.status AS clinic_status,
+      COALESCE(c.plan, 'active') AS clinic_plan,
+      c.trial_expires_at
     FROM clinic_users cu
     JOIN clinics c ON c.id = cu.clinic_id
     WHERE cu.email = ${email.toLowerCase()}
@@ -67,6 +71,10 @@ export async function login(formData: FormData) {
   if (!user.is_active)                  return { error: 'Your account has been disabled. Contact your admin.' }
   if (user.clinic_status === 'paused')  return { error: 'This clinic is currently paused. Contact support.' }
   if (user.clinic_status === 'deleted') return { error: 'Invalid email or password' }
+  if (user.clinic_plan === 'suspended') return { error: 'Your clinic account has been suspended. Please contact support.' }
+  if (user.clinic_plan === 'trial' && user.trial_expires_at && new Date(user.trial_expires_at) < new Date()) {
+    return { error: 'Your trial has expired. Please upgrade to continue.' }
+  }
 
   const session: Session = {
     userId:         user.id,
