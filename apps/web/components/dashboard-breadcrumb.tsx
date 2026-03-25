@@ -11,6 +11,7 @@ import {
 const BREADCRUMB_MAP: Record<string, string> = {
   "/doctor": "Dashboard",
   "/doctor/consultation": "Consultation",
+  "/doctor/patients": "Patients",
   "/receptionist/patients": "Patients",
   "/clinic-admin": "Manage Users",
   "/settings": "Settings",

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useRef, useEffect } from "react"
 import {
   updateProfileName,
   updateProfilePassword,
@@ -52,6 +52,13 @@ export function SettingsClient({
   const [pwError, setPwError] = useState("")
   const [pwPending, startPwT] = useTransition()
 
+  const profileTimer = useRef<ReturnType<typeof setTimeout>>(null)
+  const pwTimer = useRef<ReturnType<typeof setTimeout>>(null)
+  useEffect(() => () => {
+    if (profileTimer.current) clearTimeout(profileTimer.current)
+    if (pwTimer.current) clearTimeout(pwTimer.current)
+  }, [])
+
   const handleProfileSave = (e: React.FormEvent) => {
     e.preventDefault()
     setProfileError("")
@@ -72,7 +79,7 @@ export function SettingsClient({
       }
 
       setProfileSaved(true)
-      setTimeout(() => setProfileSaved(false), 3000)
+      profileTimer.current = setTimeout(() => setProfileSaved(false), 3000)
     })
   }
 
@@ -89,7 +96,7 @@ export function SettingsClient({
       setPwSaved(true)
       setCurrentPw("")
       setNewPw("")
-      setTimeout(() => setPwSaved(false), 3000)
+      pwTimer.current = setTimeout(() => setPwSaved(false), 3000)
     })
   }
 

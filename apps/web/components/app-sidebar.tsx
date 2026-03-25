@@ -33,6 +33,7 @@ import {
   SettingsIcon,
   UserPlusIcon,
   UsersIcon,
+  ClipboardListIcon,
   LayoutDashboardIcon,
   BuildingIcon,
   DatabaseIcon,
@@ -151,9 +152,10 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupLabel>{nav.label}</SidebarGroupLabel>
           <SidebarMenu>
             {nav.items.map((item) => {
+              const baseUrl = item.url.split("?")[0]!
               const isActive =
-                pathname === item.url ||
-                (item.url !== "/" && pathname.startsWith(item.url.split("?")[0]!))
+                pathname === baseUrl ||
+                (baseUrl.split("/").length > 2 && pathname.startsWith(baseUrl + "/"))
 
               return (
                 <SidebarMenuItem key={item.title}>
