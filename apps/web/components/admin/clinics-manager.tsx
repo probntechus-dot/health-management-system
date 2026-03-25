@@ -198,6 +198,7 @@ export function ClinicsManager() {
   const [forceLogoutTarget, setForceLogoutTarget] = useState<ClinicRow | null>(null)
   const [search, setSearch] = useState("")
   const [migrating, setMigrating] = useState(false)
+  const [usersCache, setUsersCache] = useState<Record<string, ClinicUserRow[]>>({})
 
   const load = () => {
     listClinics()
@@ -277,6 +278,8 @@ export function ClinicsManager() {
       {usersClinic && (
         <ClinicUsersDialog
           clinic={usersClinic}
+          cachedUsers={usersCache[usersClinic.id]}
+          onUsersLoaded={(id, data) => setUsersCache(prev => ({ ...prev, [id]: data }))}
           onOpenChange={(open) => !open && setUsersClinic(null)}
         />
       )}
@@ -684,12 +687,14 @@ function EditClinicDialog({ clinic, onOpenChange, onSuccess }: {
 
 // ── Clinic Users Dialog ──────────────────────────────────────────────────────
 
-function ClinicUsersDialog({ clinic, onOpenChange }: {
+function ClinicUsersDialog({ clinic, cachedUsers, onUsersLoaded, onOpenChange }: {
   clinic: ClinicRow
+  cachedUsers: ClinicUserRow[] | undefined
+  onUsersLoaded: (clinicId: string, data: ClinicUserRow[]) => void
   onOpenChange: (open: boolean) => void
 }) {
-  const [users, setUsers] = useState<ClinicUserRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const [users, setUsers] = useState<ClinicUserRow[]>(cachedUsers ?? [])
+  const [loading, setLoading] = useState(!cachedUsers)
   const [editUser, setEditUser] = useState<ClinicUserRow | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<ClinicUserRow | null>(null)
@@ -697,12 +702,14 @@ function ClinicUsersDialog({ clinic, onOpenChange }: {
 
   const reload = () =>
     listClinicUsers(clinic.id)
-      .then(setUsers)
+      .then((data) => { setUsers(data); onUsersLoaded(clinic.id, data) })
       .catch(() => toast.error("Failed to reload users"))
 
   useEffect(() => {
+    if (cachedUsers) return
     listClinicUsers(clinic.id).then((data) => {
       setUsers(data)
+      onUsersLoaded(clinic.id, data)
       setLoading(false)
     })
   }, [clinic.id])
@@ -729,7 +736,7 @@ function ClinicUsersDialog({ clinic, onOpenChange }: {
 
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl min-w-fit">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle>Users — {clinic.name}</DialogTitle>
