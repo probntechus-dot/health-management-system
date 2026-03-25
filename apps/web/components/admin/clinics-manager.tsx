@@ -59,10 +59,15 @@ import {
   pauseClinic,
   resumeClinic,
   deleteClinic,
-  setClinicPlan,
+  updateClinic,
   listClinicUsers,
   updateClinicUser,
+  addClinicUser,
   toggleClinicUserActive,
+  sendNotification,
+  sendNotificationToAll,
+  forceLogoutClinic,
+  runClinicsMigration,
   type ClinicRow,
   type ClinicUserRow,
 } from "@/actions/admin/clinics"
@@ -82,6 +87,11 @@ import {
   UserIcon,
   CheckIcon,
   ClockIcon,
+  UserPlusIcon,
+  BellIcon,
+  LogOutIcon,
+  DatabaseIcon,
+  SendIcon,
 } from "lucide-react"
 
 // ── Password Input (InputGroup-based) ─────────────────────────────────────────
@@ -163,6 +173,17 @@ function TrialBadge({ expiresAt }: { expiresAt: string | null }) {
   )
 }
 
+// ── Capacity Badge ────────────────────────────────────────────────────────────
+
+function CapacityBadge({ count, max, label }: { count: number; max: number; label: string }) {
+  const atLimit = count >= max
+  return (
+    <span className={`text-xs ${atLimit ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+      {label}: {count}/{max}
+    </span>
+  )
+}
+
 // ── Main Component ───────────────────────────────────────────────────────────
 
 export function ClinicsManager() {
@@ -172,7 +193,11 @@ export function ClinicsManager() {
   const [editClinic, setEditClinic] = useState<ClinicRow | null>(null)
   const [usersClinic, setUsersClinic] = useState<ClinicRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<ClinicRow | null>(null)
+  const [notifyClinic, setNotifyClinic] = useState<ClinicRow | null>(null)
+  const [showNotifyAll, setShowNotifyAll] = useState(false)
+  const [forceLogoutTarget, setForceLogoutTarget] = useState<ClinicRow | null>(null)
   const [search, setSearch] = useState("")
+  const [migrating, setMigrating] = useState(false)
 
   const load = () => {
     listClinics()
@@ -209,18 +234,39 @@ export function ClinicsManager() {
             className="pl-8 h-8"
           />
         </div>
-        <Button size="sm" onClick={() => setShowAdd(true)}>
-          <PlusIcon />
-          Add Clinic
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              setMigrating(true)
+              try {
+                await runClinicsMigration()
+                toast.success("Migrations complete")
+              } catch {
+                toast.error("Migration failed")
+              } finally {
+                setMigrating(false)
+              }
+            }}
+            disabled={migrating}
+            title="Run pending DB migrations"
+          >
+            {migrating ? <Loader2Icon className="animate-spin" /> : <DatabaseIcon />}
+            Run Migrations
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setShowNotifyAll(true)}>
+            <SendIcon />
+            Notify All
+          </Button>
+          <Button size="sm" onClick={() => setShowAdd(true)}>
+            <PlusIcon />
+            Add Clinic
+          </Button>
+        </div>
       </div>
 
-      <AddClinicDialog
-        open={showAdd}
-        onOpenChange={setShowAdd}
-        onSuccess={load}
-      />
-
+      <AddClinicDialog open={showAdd} onOpenChange={setShowAdd} onSuccess={load} />
       {editClinic && (
         <EditClinicDialog
           clinic={editClinic}
@@ -228,14 +274,12 @@ export function ClinicsManager() {
           onSuccess={load}
         />
       )}
-
       {usersClinic && (
         <ClinicUsersDialog
           clinic={usersClinic}
           onOpenChange={(open) => !open && setUsersClinic(null)}
         />
       )}
-
       {deleteTarget && (
         <DeleteClinicDialog
           clinic={deleteTarget}
@@ -243,6 +287,48 @@ export function ClinicsManager() {
           onSuccess={load}
         />
       )}
+      {notifyClinic && (
+        <SendNotificationDialog
+          clinic={notifyClinic}
+          onOpenChange={(open) => !open && setNotifyClinic(null)}
+        />
+      )}
+      {showNotifyAll && (
+        <SendNotificationDialog
+          onOpenChange={(open) => !open && setShowNotifyAll(false)}
+        />
+      )}
+
+      <AlertDialog
+        open={!!forceLogoutTarget}
+        onOpenChange={(open) => !open && setForceLogoutTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Force logout — {forceLogoutTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will immediately invalidate all active sessions for every user in{" "}
+              <span className="font-semibold">{forceLogoutTarget?.name}</span>. They will be
+              logged out on their next request. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!forceLogoutTarget) return
+                const result = await forceLogoutClinic(forceLogoutTarget.id)
+                if ("error" in result) toast.error(result.error)
+                else toast.success(`All sessions for ${forceLogoutTarget.name} invalidated`)
+                setForceLogoutTarget(null)
+              }}
+            >
+              Force Logout
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         {loading ? (
@@ -253,30 +339,26 @@ export function ClinicsManager() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[22%]">Name</TableHead>
-                <TableHead className="w-[12%]">Slug</TableHead>
-                <TableHead className="w-[10%]">Status</TableHead>
-                <TableHead className="w-[15%]">Plan</TableHead>
-                <TableHead className="w-[6%]">Users</TableHead>
-                <TableHead className="w-[12%]">Created</TableHead>
-                <TableHead className="w-[23%] text-right">Actions</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Slug</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Plan</TableHead>
+                <TableHead>Capacity</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((clinic) => (
                 <TableRow key={clinic.id}>
                   <TableCell className="font-medium">{clinic.name}</TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {clinic.slug}
-                  </TableCell>
+                  <TableCell className="font-mono text-xs">{clinic.slug}</TableCell>
                   <TableCell>
                     <Badge
                       variant={
-                        clinic.status === "active"
-                          ? "default"
-                          : clinic.status === "paused"
-                            ? "secondary"
-                            : "destructive"
+                        clinic.status === "active" ? "default"
+                          : clinic.status === "paused" ? "secondary"
+                          : "destructive"
                       }
                     >
                       {clinic.status}
@@ -286,11 +368,9 @@ export function ClinicsManager() {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <Badge
                         variant={
-                          clinic.plan === "active"
-                            ? "default"
-                            : clinic.plan === "trial"
-                              ? "secondary"
-                              : "destructive"
+                          clinic.plan === "active" ? "default"
+                            : clinic.plan === "trial" ? "secondary"
+                            : "destructive"
                         }
                       >
                         {clinic.plan}
@@ -300,27 +380,33 @@ export function ClinicsManager() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{clinic.user_count}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-0.5">
+                      <CapacityBadge count={clinic.doctor_count} max={clinic.max_doctors} label="Dr" />
+                      <CapacityBadge count={clinic.receptionist_count} max={clinic.max_receptionists} label="Rec" />
+                    </div>
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {new Date(clinic.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="overflow-visible">
                     <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => setEditClinic(clinic)}
-                        title="Edit Plan"
-                      >
+                      <Button variant="ghost" size="icon-sm" onClick={() => setEditClinic(clinic)} title="Edit Clinic">
                         <PencilIcon />
+                      </Button>
+                      <Button variant="ghost" size="icon-sm" onClick={() => setUsersClinic(clinic)} title="Users">
+                        <UsersIcon />
+                      </Button>
+                      <Button variant="ghost" size="icon-sm" onClick={() => setNotifyClinic(clinic)} title="Send Notification">
+                        <BellIcon />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon-sm"
-                        onClick={() => setUsersClinic(clinic)}
-                        title="Users"
+                        title="Force Logout All Users"
+                        onClick={() => setForceLogoutTarget(clinic)}
                       >
-                        <UsersIcon />
+                        <LogOutIcon />
                       </Button>
                       {clinic.status === "active" && (
                         <Button
@@ -380,11 +466,7 @@ export function ClinicsManager() {
 
 // ── Add Clinic Dialog ────────────────────────────────────────────────────────
 
-function AddClinicDialog({
-  open,
-  onOpenChange,
-  onSuccess,
-}: {
+function AddClinicDialog({ open, onOpenChange, onSuccess }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
@@ -418,14 +500,8 @@ function AddClinicDialog({
         setError(result.error as string)
       } else {
         onOpenChange(false)
-        setNewName("")
-        setNewSlug("")
-        setAdminName("")
-        setAdminEmail("")
-        setAdminPw("")
-        setMaxDoctors("5")
-        setMaxReceptionists("5")
-        setPlan("active")
+        setNewName(""); setNewSlug(""); setAdminName(""); setAdminEmail(""); setAdminPw("")
+        setMaxDoctors("5"); setMaxReceptionists("5"); setPlan("active")
         toast.success("Clinic created successfully")
         onSuccess()
       }
@@ -435,110 +511,44 @@ function AddClinicDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add Clinic</DialogTitle>
-        </DialogHeader>
-        <form
-          onSubmit={handleAdd}
-          className="max-h-[70vh] space-y-3 overflow-y-auto"
-        >
+        <DialogHeader><DialogTitle>Add Clinic</DialogTitle></DialogHeader>
+        <form onSubmit={handleAdd} className="max-h-[70vh] space-y-3 overflow-y-auto">
           <div className="space-y-1.5">
             <Label>Clinic Name</Label>
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              required
-              placeholder="My Clinic"
-            />
+            <Input value={newName} onChange={(e) => setNewName(e.target.value)} required placeholder="My Clinic" />
           </div>
           <div className="space-y-1.5">
-            <Label>
-              Slug{" "}
-              <span className="text-xs text-muted-foreground">
-                (lowercase, underscores only)
-              </span>
-            </Label>
-            <Input
-              value={newSlug}
-              onChange={(e) => setNewSlug(e.target.value)}
-              required
-              placeholder="my_clinic"
-              pattern="^[a-z][a-z0-9_]*$"
-            />
+            <Label>Slug <span className="text-xs text-muted-foreground">(lowercase, underscores only)</span></Label>
+            <Input value={newSlug} onChange={(e) => setNewSlug(e.target.value)} required placeholder="my_clinic" pattern="^[a-z][a-z0-9_]*$" />
           </div>
           <div className="space-y-1.5">
             <Label>Plan</Label>
             <Select value={plan} onValueChange={(v) => setPlan(v as typeof plan)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="trial">Trial (30 days)</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <p className="pt-2 text-xs font-semibold text-muted-foreground">
-            Clinic Admin Account
-          </p>
-          <Input
-            value={adminName}
-            onChange={(e) => setAdminName(e.target.value)}
-            required
-            placeholder="Admin full name"
-          />
-          <Input
-            value={adminEmail}
-            onChange={(e) => setAdminEmail(e.target.value)}
-            required
-            type="email"
-            placeholder="Admin email"
-          />
-          <PasswordInput
-            value={adminPw}
-            onChange={(e) => setAdminPw(e.target.value)}
-            required
-            placeholder="Password (min 8)"
-            minLength={8}
-          />
-          <p className="pt-2 text-xs font-semibold text-muted-foreground">
-            User Limits
-          </p>
+          <p className="pt-2 text-xs font-semibold text-muted-foreground">Clinic Admin Account</p>
+          <Input value={adminName} onChange={(e) => setAdminName(e.target.value)} required placeholder="Admin full name" />
+          <Input value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} required type="email" placeholder="Admin email" />
+          <PasswordInput value={adminPw} onChange={(e) => setAdminPw(e.target.value)} required placeholder="Password (min 8)" minLength={8} />
+          <p className="pt-2 text-xs font-semibold text-muted-foreground">User Limits</p>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <Label className="text-xs">Max Doctors</Label>
-              <Input
-                type="number"
-                min="1"
-                max="50"
-                value={maxDoctors}
-                onChange={(e) => setMaxDoctors(e.target.value)}
-              />
+              <Input type="number" min="1" max="100" value={maxDoctors} onChange={(e) => setMaxDoctors(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Max Receptionists</Label>
-              <Input
-                type="number"
-                min="1"
-                max="50"
-                value={maxReceptionists}
-                onChange={(e) => setMaxReceptionists(e.target.value)}
-              />
+              <Input type="number" min="1" max="100" value={maxReceptionists} onChange={(e) => setMaxReceptionists(e.target.value)} />
             </div>
           </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={isPending}>
               {isPending && <Loader2Icon className="animate-spin" />}
               Create
@@ -550,28 +560,25 @@ function AddClinicDialog({
   )
 }
 
-// ── Edit Clinic Plan Dialog ──────────────────────────────────────────────────
+// ── Edit Clinic Dialog (full edit: details + plan + limits + contact) ─────────
 
-function EditClinicDialog({
-  clinic,
-  onOpenChange,
-  onSuccess,
-}: {
+function EditClinicDialog({ clinic, onOpenChange, onSuccess }: {
   clinic: ClinicRow
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
 }) {
+  const [name, setName] = useState(clinic.name)
+  const [phone, setPhone] = useState(clinic.phone ?? "")
+  const [address, setAddress] = useState(clinic.address ?? "")
+  const [website, setWebsite] = useState(clinic.website ?? "")
+  const [maxDoctors, setMaxDoctors] = useState(String(clinic.max_doctors))
+  const [maxReceptionists, setMaxReceptionists] = useState(String(clinic.max_receptionists))
   const [plan, setPlan] = useState(clinic.plan)
-  const [trialExpires, setTrialExpires] = useState(
-    clinic.trial_expires_at ?? ""
-  )
-  const [paymentNotes, setPaymentNotes] = useState(
-    clinic.payment_notes ?? ""
-  )
+  const [trialExpires, setTrialExpires] = useState(clinic.trial_expires_at ?? "")
+  const [paymentNotes, setPaymentNotes] = useState(clinic.payment_notes ?? "")
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
 
-  // Auto-set 30-day trial when switching to trial plan
   const handlePlanChange = (newPlan: typeof plan) => {
     setPlan(newPlan)
     if (newPlan === "trial" && !trialExpires) {
@@ -584,17 +591,22 @@ function EditClinicDialog({
     e.preventDefault()
     setError("")
     startTransition(async () => {
-      const result = await setClinicPlan(
-        clinic.id,
+      const result = await updateClinic(clinic.id, {
+        name,
+        phone,
+        address,
+        website,
+        maxDoctors: parseInt(maxDoctors) || clinic.max_doctors,
+        maxReceptionists: parseInt(maxReceptionists) || clinic.max_receptionists,
         plan,
-        trialExpires || null,
-        paymentNotes || null
-      )
+        trialExpiresAt: trialExpires || null,
+        paymentNotes: paymentNotes || null,
+      })
       if ("error" in result) {
         setError(result.error)
       } else {
         onOpenChange(false)
-        toast.success("Plan updated")
+        toast.success("Clinic updated")
         onSuccess()
       }
     })
@@ -603,16 +615,42 @@ function EditClinicDialog({
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Plan — {clinic.name}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSave} className="space-y-4">
+        <DialogHeader><DialogTitle>Edit Clinic — {clinic.slug}</DialogTitle></DialogHeader>
+        <form onSubmit={handleSave} className="max-h-[70vh] space-y-3 overflow-y-auto">
+          <div className="space-y-1.5">
+            <Label>Clinic Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Phone</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Optional" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Website</Label>
+              <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Address</Label>
+            <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Optional" />
+          </div>
+          <p className="pt-2 text-xs font-semibold text-muted-foreground">User Limits</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Max Doctors</Label>
+              <Input type="number" min="1" max="100" value={maxDoctors} onChange={(e) => setMaxDoctors(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Max Receptionists</Label>
+              <Input type="number" min="1" max="100" value={maxReceptionists} onChange={(e) => setMaxReceptionists(e.target.value)} />
+            </div>
+          </div>
+          <p className="pt-2 text-xs font-semibold text-muted-foreground">Plan & Billing</p>
           <div className="space-y-1.5">
             <Label>Plan</Label>
             <Select value={plan} onValueChange={(v) => handlePlanChange(v as typeof plan)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="trial">Trial</SelectItem>
@@ -623,35 +661,16 @@ function EditClinicDialog({
           {plan === "trial" && (
             <div className="space-y-1.5">
               <Label>Trial Expires At</Label>
-              <Input
-                type="date"
-                value={trialExpires}
-                onChange={(e) => setTrialExpires(e.target.value)}
-              />
+              <Input type="date" value={trialExpires} onChange={(e) => setTrialExpires(e.target.value)} />
             </div>
           )}
           <div className="space-y-1.5">
             <Label>Payment Notes</Label>
-            <Textarea
-              value={paymentNotes}
-              onChange={(e) => setPaymentNotes(e.target.value)}
-              placeholder="Optional payment notes..."
-              rows={3}
-            />
+            <Textarea value={paymentNotes} onChange={(e) => setPaymentNotes(e.target.value)} placeholder="Optional payment notes..." rows={2} />
           </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={isPending}>
               {isPending && <Loader2Icon className="animate-spin" />}
               Save
@@ -665,10 +684,7 @@ function EditClinicDialog({
 
 // ── Clinic Users Dialog ──────────────────────────────────────────────────────
 
-function ClinicUsersDialog({
-  clinic,
-  onOpenChange,
-}: {
+function ClinicUsersDialog({ clinic, onOpenChange }: {
   clinic: ClinicRow
   onOpenChange: (open: boolean) => void
 }) {
@@ -677,6 +693,7 @@ function ClinicUsersDialog({
   const [editUser, setEditUser] = useState<ClinicUserRow | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<ClinicUserRow | null>(null)
+  const [showAddUser, setShowAddUser] = useState(false)
 
   const reload = () =>
     listClinicUsers(clinic.id)
@@ -712,14 +729,18 @@ function ClinicUsersDialog({
 
   return (
     <Dialog open={true} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Users — {clinic.name}</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Users — {clinic.name}</DialogTitle>
+            <Button size="sm" onClick={() => setShowAddUser(true)}>
+              <UserPlusIcon />
+              Add User
+            </Button>
+          </div>
         </DialogHeader>
         {loading ? (
-          <div className="py-4 text-center text-muted-foreground">
-            Loading...
-          </div>
+          <div className="py-4 text-center text-muted-foreground">Loading...</div>
         ) : (
           <div className="max-h-[60vh] overflow-y-auto">
             <Table>
@@ -736,7 +757,10 @@ function ClinicUsersDialog({
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.full_name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div>{user.full_name}</div>
+                      {user.specialization && <div className="text-xs text-muted-foreground">{user.specialization}</div>}
+                    </TableCell>
                     <TableCell className="text-xs">{user.email}</TableCell>
                     <TableCell><RoleBadge role={user.role} /></TableCell>
                     <TableCell><PasswordCell password={user.display_password} /></TableCell>
@@ -751,12 +775,7 @@ function ClinicUsersDialog({
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => setEditUser(user)}
-                          title="Edit"
-                        >
+                        <Button variant="ghost" size="icon-sm" onClick={() => setEditUser(user)} title="Edit">
                           <PencilIcon />
                         </Button>
                         {user.role !== "clinic_admin" && (
@@ -795,15 +814,18 @@ function ClinicUsersDialog({
         {editUser && (
           <EditUserInline
             user={editUser}
-            onDone={() => {
-              setEditUser(null)
-              reload()
-            }}
+            onDone={() => { setEditUser(null); reload() }}
+          />
+        )}
+
+        {showAddUser && (
+          <AddUserInline
+            clinicId={clinic.id}
+            onDone={() => { setShowAddUser(false); reload() }}
           />
         )}
       </DialogContent>
 
-      {/* Deactivation Confirmation */}
       <AlertDialog
         open={!!deactivateTarget}
         onOpenChange={(open) => !open && setDeactivateTarget(null)}
@@ -836,14 +858,97 @@ function ClinicUsersDialog({
   )
 }
 
-function EditUserInline({
-  user,
-  onDone,
-}: {
-  user: ClinicUserRow
-  onDone: () => void
-}) {
+// ── Add User Inline (platform admin adds user to a clinic) ───────────────────
+
+function AddUserInline({ clinicId, onDone }: { clinicId: string; onDone: () => void }) {
+  const [fullName, setFullName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [role, setRole] = useState<"doctor" | "receptionist">("doctor")
+  const [specialization, setSpecialization] = useState("")
+  const [credentials, setCredentials] = useState("")
+  const [error, setError] = useState("")
+  const [isPending, startTransition] = useTransition()
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    startTransition(async () => {
+      const result = await addClinicUser(clinicId, {
+        fullName,
+        email,
+        password,
+        role,
+        specialization: specialization || undefined,
+        credentials: credentials || undefined,
+      })
+      if ("error" in result) {
+        setError(result.error)
+      } else {
+        toast.success("User added")
+        onDone()
+      }
+    })
+  }
+
+  return (
+    <form onSubmit={handleSave} className="space-y-3 border-t pt-4">
+      <p className="text-sm font-medium">Add User to Clinic</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Full Name</Label>
+          <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required placeholder="Dr. Ahmad" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Role</Label>
+          <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="doctor">Doctor</SelectItem>
+              <SelectItem value="receptionist">Receptionist</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Email</Label>
+        <Input value={email} onChange={(e) => setEmail(e.target.value)} required type="email" placeholder="user@clinic.com" />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Password</Label>
+        <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Min 8 characters" minLength={8} />
+      </div>
+      {role === "doctor" && (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Specialization</Label>
+            <Input value={specialization} onChange={(e) => setSpecialization(e.target.value)} placeholder="e.g. General Physician" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Credentials</Label>
+            <Input value={credentials} onChange={(e) => setCredentials(e.target.value)} placeholder="e.g. MBBS, FCPS" />
+          </div>
+        </div>
+      )}
+      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={onDone}>Cancel</Button>
+        <Button type="submit" size="sm" disabled={isPending}>
+          {isPending && <Loader2Icon className="animate-spin" />}
+          Add User
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+// ── Edit User Inline (expanded: name, email, specialization, credentials, password) ──
+
+function EditUserInline({ user, onDone }: { user: ClinicUserRow; onDone: () => void }) {
   const [fullName, setFullName] = useState(user.full_name)
+  const [email, setEmail] = useState(user.email)
+  const [specialization, setSpecialization] = useState(user.specialization ?? "")
+  const [credentials, setCredentials] = useState(user.credentials ?? "")
   const [newPassword, setNewPassword] = useState("")
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
@@ -853,6 +958,9 @@ function EditUserInline({
     startTransition(async () => {
       const result = await updateClinicUser(user.id, {
         fullName: fullName !== user.full_name ? fullName : undefined,
+        email: email !== user.email ? email : undefined,
+        specialization,
+        credentials,
         newPassword: newPassword || undefined,
       })
       if ("error" in result) {
@@ -867,27 +975,35 @@ function EditUserInline({
   return (
     <div className="space-y-3 border-t pt-4">
       <p className="text-sm font-medium">Edit {user.full_name}</p>
-      <div className="space-y-1.5">
-        <Label>Full Name</Label>
-        <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Full Name</Label>
+          <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Email</Label>
+          <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
+        </div>
       </div>
-      <div className="space-y-1.5">
-        <Label>New Password</Label>
-        <PasswordInput
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="Leave blank to keep current"
-        />
-      </div>
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+      {user.role === "doctor" && (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Specialization</Label>
+            <Input value={specialization} onChange={(e) => setSpecialization(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Credentials</Label>
+            <Input value={credentials} onChange={(e) => setCredentials(e.target.value)} />
+          </div>
+        </div>
       )}
+      <div className="space-y-1.5">
+        <Label className="text-xs">New Password</Label>
+        <PasswordInput value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Leave blank to keep current" />
+      </div>
+      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
       <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={onDone}>
-          Cancel
-        </Button>
+        <Button variant="outline" size="sm" onClick={onDone}>Cancel</Button>
         <Button size="sm" onClick={handleSave} disabled={isPending}>
           {isPending && <Loader2Icon className="animate-spin" />}
           Save
@@ -897,19 +1013,87 @@ function EditUserInline({
   )
 }
 
-// ── Delete Clinic Dialog ─────────────────────────────────────────────────────
+// ── Send Notification Dialog ─────────────────────────────────────────────────
 
-function DeleteClinicDialog({
+function SendNotificationDialog({
   clinic,
   onOpenChange,
-  onSuccess,
 }: {
+  clinic?: ClinicRow
+  onOpenChange: (open: boolean) => void
+}) {
+  const [title, setTitle] = useState("")
+  const [message, setMessage] = useState("")
+  const [type, setType] = useState<"info" | "warning" | "urgent">("info")
+  const [error, setError] = useState("")
+  const [isPending, startTransition] = useTransition()
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    startTransition(async () => {
+      const result = clinic
+        ? await sendNotification(clinic.id, title, message, type)
+        : await sendNotificationToAll(title, message, type)
+      if ("error" in result) {
+        setError(result.error)
+      } else {
+        onOpenChange(false)
+        toast.success(clinic ? `Notification sent to ${clinic.name}` : "Notification sent to all clinics")
+      }
+    })
+  }
+
+  return (
+    <Dialog open={true} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {clinic ? `Notify — ${clinic.name}` : "Notify All Clinics"}
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSend} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Title</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="System update" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Message</Label>
+            <Textarea value={message} onChange={(e) => setMessage(e.target.value)} required placeholder="Enter notification message..." rows={3} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Type</Label>
+            <Select value={type} onValueChange={(v) => setType(v as typeof type)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="info">Info</SelectItem>
+                <SelectItem value="warning">Warning</SelectItem>
+                <SelectItem value="urgent">Urgent</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending && <Loader2Icon className="animate-spin" />}
+              Send
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Delete Clinic Dialog ─────────────────────────────────────────────────────
+
+function DeleteClinicDialog({ clinic, onOpenChange, onSuccess }: {
   clinic: ClinicRow
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
 }) {
   const [isPending, startTransition] = useTransition()
-
   const [error, setError] = useState("")
 
   const handleDelete = () => {
@@ -937,20 +1121,10 @@ function DeleteClinicDialog({
             the clinic schema and all data. This cannot be undone.
           </DialogDescription>
         </DialogHeader>
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={isPending}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
             {isPending && <Loader2Icon className="animate-spin" />}
             Delete
           </Button>
