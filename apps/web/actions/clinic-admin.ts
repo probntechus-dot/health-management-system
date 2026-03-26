@@ -2,6 +2,7 @@
 
 import { hash } from 'bcryptjs'
 import type postgres from 'postgres'
+import { updateTag } from 'next/cache'
 import { appPool } from '@/lib/db/index'
 import { requireRole, invalidateUserSessions } from '@/lib/auth'
 import { getErrorMessage } from '@/lib/errors'
@@ -236,6 +237,11 @@ export async function updateUser(
         session_version  = CASE WHEN ${passwordHash !== null} THEN session_version + 1 ELSE session_version END
       WHERE id = ${userId}
     `
+    // Bust the doctor-profile cache if credentials/specialization changed so
+    // the consultation page picks up the new values on next render.
+    if (data.credentials !== undefined || data.specialization !== undefined) {
+      updateTag(`doctor-profile:${userId}`)
+    }
     return { success: true }
   } catch (error) {
     return { error: getErrorMessage(error, 'Failed to update user') }

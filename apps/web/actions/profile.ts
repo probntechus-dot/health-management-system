@@ -1,6 +1,7 @@
 'use server'
 
 import { compare, hash } from 'bcryptjs'
+import { updateTag } from 'next/cache'
 import { appPool } from '@/lib/db/index'
 import { requireAuth, writeSessionCookies, invalidateUserSessions } from '@/lib/auth'
 import { getErrorMessage } from '@/lib/errors'
@@ -34,6 +35,8 @@ export async function updateSpecialization(specialization: string): Promise<{ su
       UPDATE clinic_users SET specialization = ${specialization || null} WHERE id = ${session.userId}
     `
     await writeSessionCookies({ ...session, specialization: specialization || null })
+    // Bust the doctor-profile cache so the consultation page picks up the new value
+    updateTag(`doctor-profile:${session.userId}`)
     return { success: true }
   } catch (error) {
     return { error: getErrorMessage(error, 'Failed to update specialization') }
