@@ -11,6 +11,14 @@ import {
   markNotificationRead,
   type NotificationRow,
 } from "@/actions/notifications"
+import { getCached, setCacheWithTTL, invalidateCache } from "@/lib/client-cache"
+
+// Cache key and TTL for notification data.
+// 60s is long enough to prevent redundant fetches on rapid navigation,
+// but short enough that a new notification sent during a session appears
+// within a minute without a full page reload.
+const NOTIF_CACHE_KEY = "notifications:v1"
+const NOTIF_CACHE_TTL_MS = 60_000
 
 const TYPE_STYLES: Record<NotificationRow["type"], string> = {
   info: "border-l-blue-400",
@@ -19,32 +27,46 @@ const TYPE_STYLES: Record<NotificationRow["type"], string> = {
 }
 
 export function NotificationBell() {
-  const [notifications, setNotifications] = useState<NotificationRow[]>([])
+  const [notifications, setNotifications] = useState<NotificationRow[]>(() => {
+    // Initialise from cache synchronously — avoids a blank bell on mount
+    return getCached<NotificationRow[]>(NOTIF_CACHE_KEY) ?? []
+  })
   const [isPending, startTransition] = useTransition()
 
   const unread = notifications.filter((n) => !n.is_read).length
 
   const load = () => {
-    getNotifications().then(setNotifications).catch(() => {})
+    // Serve from cache if still fresh
+    const cached = getCached<NotificationRow[]>(NOTIF_CACHE_KEY)
+    if (cached) {
+      setNotifications(cached)
+      return
+    }
+    getNotifications().then((data) => {
+      setCacheWithTTL(NOTIF_CACHE_KEY, data, NOTIF_CACHE_TTL_MS)
+      setNotifications(data)
+    }).catch(() => {})
   }
 
   useEffect(() => {
     load()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
 const handleMarkAll = () => {
     startTransition(async () => {
       await markAllRead()
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+      const updated = notifications.map((n) => ({ ...n, is_read: true }))
+      invalidateCache(NOTIF_CACHE_KEY)
+      setNotifications(updated)
     })
   }
 
   const handleMarkOne = (id: string) => {
     startTransition(async () => {
       await markNotificationRead(id)
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-      )
+      const updated = notifications.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      invalidateCache(NOTIF_CACHE_KEY)
+      setNotifications(updated)
     })
   }
 

@@ -5,19 +5,34 @@
  * (e.g. /clinic-admin → /settings → /clinic-admin).  Mutations
  * call `invalidate(key)` so the next read fetches fresh data.
  *
- * No TTL — entries live until explicitly invalidated by a mutation.
+ * Entries can optionally carry a TTL (via `setCacheWithTTL`).
+ * Plain `setCache` entries live until explicitly invalidated.
  */
 
-const store = new Map<string, unknown>()
+type CacheEntry<T> = {
+  data: T
+  expiresAt: number | null // null = no expiry
+}
+
+const store = new Map<string, CacheEntry<unknown>>()
 
 export function getCached<T>(key: string): T | null {
-  const data = store.get(key)
-  if (data === undefined) return null
-  return data as T
+  const entry = store.get(key)
+  if (!entry) return null
+  if (entry.expiresAt !== null && Date.now() > entry.expiresAt) {
+    store.delete(key)
+    return null
+  }
+  return entry.data as T
 }
 
 export function setCache<T>(key: string, data: T): void {
-  store.set(key, data)
+  store.set(key, { data, expiresAt: null })
+}
+
+/** Store a value that automatically expires after `ttlMs` milliseconds. */
+export function setCacheWithTTL<T>(key: string, data: T, ttlMs: number): void {
+  store.set(key, { data, expiresAt: Date.now() + ttlMs })
 }
 
 export function invalidateCache(key: string): void {

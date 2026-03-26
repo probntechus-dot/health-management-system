@@ -108,18 +108,26 @@ function getInitials(name: string): string {
     .toUpperCase()
 }
 
-export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({
+  serverSession,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & { serverSession?: SessionUI | null }) {
   const pathname = usePathname()
   const { isMobile, setOpenMobile } = useSidebar()
-  const [user, setUser] = useState<SessionUI | null>(readSessionUI)
+  // Prefer the server-provided session (no cookie parse needed on mount).
+  // Fall back to cookie read for environments where prop isn't passed.
+  const [user, setUser] = useState<SessionUI | null>(serverSession ?? readSessionUI)
   const prevPathname = useRef(pathname)
 
-  // Re-read cookie when pathname changes (covers profile update → navigate back)
+  // Re-read cookie only when navigating away from /settings, where the user
+  // may have updated their profile name. All other navigations just close
+  // the mobile sidebar — no cookie parse needed.
   useEffect(() => {
     if (prevPathname.current !== pathname) {
+      const wasSettings = prevPathname.current.startsWith("/settings")
       prevPathname.current = pathname
       if (isMobile) setOpenMobile(false)
-      setUser(readSessionUI())
+      if (wasSettings) setUser(readSessionUI())
     }
   }, [pathname, isMobile, setOpenMobile])
 
