@@ -7,98 +7,75 @@
 @source "../../../components/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
-/* ═══════════════════════════════════════════════════════════
-   CLINIC DESIGN SYSTEM — "Quiet Confidence"
-   Deep Teal primary · Blue-Gray neutrals · Nordic calm
-   ═══════════════════════════════════════════════════════════ */
-
 :root {
-    /* ── Background & Surface ─────────────────────────────── */
-    --background: oklch(0.985 0.004 250);
-    --foreground: oklch(0.22 0.02 250);
-    --card: oklch(0.98 0.005 250);
-    --card-foreground: oklch(0.24 0.018 250);
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.22 0.02 250);
-
-    /* ── Brand — Deep Calm Teal ───────────────────────────── */
+    --popover-foreground: oklch(0.145 0 0);
     --primary: oklch(0.50 0.09 210);
     --primary-foreground: oklch(1 0 0);
-
-    /* ── Secondary — Soft Blue-Gray ───────────────────────── */
-    --secondary: oklch(0.94 0.008 250);
-    --secondary-foreground: oklch(0.34 0.02 250);
-
-    /* ── Muted & Accent ───────────────────────────────────── */
-    --muted: oklch(0.96 0.006 250);
-    --muted-foreground: oklch(0.55 0.012 250);
-    --accent: oklch(0.94 0.025 210);
-    --accent-foreground: oklch(0.38 0.08 210);
-
-    /* ── Destructive ──────────────────────────────────────── */
-    --destructive: oklch(0.58 0.22 25);
-
-    /* ── Borders & Inputs ─────────────────────────────────── */
-    --border: oklch(0.91 0.008 250);
-    --input: oklch(0.92 0.008 250);
+    --secondary: oklch(0.668 0.176 136.5);
+    --secondary-foreground: oklch(1 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
     --ring: oklch(0.60 0.10 210);
-
-    /* ── Charts — Teal cascade + sage + amber ─────────────── */
-    --chart-1: oklch(0.72 0.10 210);
-    --chart-2: oklch(0.58 0.12 210);
-    --chart-3: oklch(0.48 0.10 220);
-    --chart-4: oklch(0.65 0.12 155);
-    --chart-5: oklch(0.70 0.12 65);
-
-    /* ── Radius ───────────────────────────────────────────── */
+    --chart-1: oklch(0.809 0.105 251.813);
+    --chart-2: oklch(0.623 0.214 259.815);
+    --chart-3: oklch(0.546 0.245 262.881);
+    --chart-4: oklch(0.488 0.243 264.376);
+    --chart-5: oklch(0.424 0.199 265.638);
     --radius: 0.5rem;
-
-    /* ── Sidebar — Deep Teal-Charcoal ─────────────────────── */
-    --sidebar: oklch(0.22 0.035 210);
-    --sidebar-foreground: oklch(0.72 0.02 210);
-    --sidebar-primary: oklch(0.62 0.12 210);
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.50 0.09 210);
     --sidebar-primary-foreground: oklch(1 0 0);
-    --sidebar-accent: oklch(0.27 0.03 210);
-    --sidebar-accent-foreground: oklch(0.90 0.01 210);
-    --sidebar-border: oklch(1 0 0 / 6%);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.60 0.10 210);
 }
 
 .dark {
-    --background: oklch(0.27 0.012 250);
-    --foreground: oklch(0.93 0.005 250);
-    --card: oklch(0.31 0.012 250);
-    --card-foreground: oklch(0.93 0.005 250);
-    --popover: oklch(0.33 0.012 250);
-    --popover-foreground: oklch(0.93 0.005 250);
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
     --primary: oklch(0.62 0.12 210);
     --primary-foreground: oklch(1 0 0);
-    --secondary: oklch(0.35 0.012 250);
-    --secondary-foreground: oklch(0.90 0.005 250);
-    --muted: oklch(0.34 0.01 250);
-    --muted-foreground: oklch(0.72 0.01 250);
-    --accent: oklch(0.35 0.025 210);
-    --accent-foreground: oklch(0.82 0.06 210);
-    --destructive: oklch(0.65 0.20 22);
+    --secondary: oklch(0.748 0.188 131.7);
+    --secondary-foreground: oklch(0.145 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 12%);
+    --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.62 0.12 210);
-    --chart-1: oklch(0.72 0.10 210);
-    --chart-2: oklch(0.58 0.12 210);
-    --chart-3: oklch(0.48 0.10 220);
-    --chart-4: oklch(0.65 0.12 155);
-    --chart-5: oklch(0.70 0.12 65);
-    --sidebar: oklch(0.22 0.03 210);
-    --sidebar-foreground: oklch(0.70 0.02 210);
+    --chart-1: oklch(0.809 0.105 251.813);
+    --chart-2: oklch(0.623 0.214 259.815);
+    --chart-3: oklch(0.546 0.245 262.881);
+    --chart-4: oklch(0.488 0.243 264.376);
+    --chart-5: oklch(0.424 0.199 265.638);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.62 0.12 210);
     --sidebar-primary-foreground: oklch(1 0 0);
-    --sidebar-accent: oklch(0.27 0.025 210);
-    --sidebar-accent-foreground: oklch(0.90 0.01 210);
-    --sidebar-border: oklch(1 0 0 / 6%);
-    --sidebar-ring: oklch(0.55 0.08 210);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.60 0.10 210);
 }
 
-/* ─── Theme Registration ──────────────────────────────────── */
 @theme inline {
     --color-background: var(--background);
     --color-foreground: var(--foreground);
@@ -142,16 +119,16 @@
     --font-heading: var(--font-heading);
 }
 
-/* ─── Base Resets ──────────────────────────────────────────── */
 @layer base {
+
   * {
     @apply border-border outline-ring/50;
-  }
+    }
   body {
     @apply bg-background text-foreground text-sm leading-relaxed;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
+    }
   h1, h2, h3, h4, h5, h6,
   [data-slot="card-title"],
   [data-slot="dialog-title"],
@@ -159,25 +136,19 @@
   [data-slot="alert-dialog-title"] {
     font-family: var(--font-heading), system-ui, sans-serif;
     letter-spacing: -0.02em;
-  }
+    }
   button, [role="button"] {
     cursor: pointer;
-  }
-  ::selection {
-    background: oklch(0.50 0.09 210 / 18%);
-  }
-  .dark ::selection {
-    background: oklch(0.62 0.12 210 / 25%);
-  }
+    }
 }
 
-/* ─── Scrollbar — Matches blue-gray palette ───────────────── */
+/* Thin, light scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: oklch(0.88 0.006 250) transparent;
+  scrollbar-color: oklch(93.044% 0.00257 107.079) transparent;
 }
 .dark * {
-  scrollbar-color: oklch(0.28 0.015 250) transparent;
+  scrollbar-color: oklch(0.3 0 0) transparent;
 }
 ::-webkit-scrollbar {
   width: 5px;
@@ -187,149 +158,15 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.88 0.006 250);
+  background: oklch(0.85 0 0);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.78 0.008 250);
+  background: oklch(0.75 0 0);
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: oklch(0.28 0.015 250);
+  background: oklch(0.3 0 0);
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.38 0.012 250);
-}
-
-/* ═══════════════════════════════════════════════════════════
-   Component Refinements — via data-slot selectors
-   Unlayered so they override Tailwind utility classes
-   ═══════════════════════════════════════════════════════════ */
-
-/* ─── Cards — soft colored shadows, gentle float ──────────── */
-[data-slot="card"] {
-  box-shadow:
-    0 1px 3px oklch(0.82 0.008 250 / 30%),
-    0 4px 16px oklch(0.90 0.006 250 / 20%);
-  transition: box-shadow 200ms ease, transform 200ms ease;
-}
-.dark [data-slot="card"] {
-  box-shadow:
-    0 1px 3px oklch(0 0 0 / 25%),
-    0 4px 12px oklch(0 0 0 / 15%);
-}
-
-/* ─── Overlays — softer blue-tinted glass ─────────────────── */
-[data-slot="dialog-overlay"],
-[data-slot="sheet-overlay"],
-[data-slot="alert-dialog-overlay"] {
-  background-color: oklch(0.15 0.02 250 / 40%);
-}
-.dark [data-slot="dialog-overlay"],
-.dark [data-slot="sheet-overlay"],
-.dark [data-slot="alert-dialog-overlay"] {
-  background-color: oklch(0.08 0.01 250 / 55%);
-}
-
-/* ─── Dialogs — premium floating shadow ───────────────────── */
-[data-slot="dialog-content"],
-[data-slot="alert-dialog-content"] {
-  box-shadow:
-    0 16px 48px oklch(0.75 0.01 250 / 25%),
-    0 4px 12px oklch(0.85 0.008 250 / 15%);
-}
-.dark [data-slot="dialog-content"],
-.dark [data-slot="alert-dialog-content"] {
-  box-shadow:
-    0 16px 48px oklch(0 0 0 / 50%),
-    0 4px 12px oklch(0 0 0 / 30%);
-}
-
-/* ─── Badges — clinical pill style ────────────────────────── */
-[data-slot="badge"] {
-  border-radius: 9999px;
-  padding-inline: 0.625rem;
-}
-
-/* ─── Table — structured data presentation ────────────────── */
-[data-slot="table-header"] tr {
-  background: var(--muted);
-}
-[data-slot="table-head"] {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* ─── Popovers & Dropdowns — colored soft shadow ──────────── */
-[data-slot="popover-content"],
-[data-slot="dropdown-menu-content"],
-[data-slot="dropdown-menu-sub-content"],
-[data-slot="select-content"] {
-  box-shadow:
-    0 8px 30px oklch(0.82 0.008 250 / 25%),
-    0 2px 8px oklch(0.88 0.006 250 / 15%);
-}
-.dark [data-slot="popover-content"],
-.dark [data-slot="dropdown-menu-content"],
-.dark [data-slot="dropdown-menu-sub-content"],
-.dark [data-slot="select-content"] {
-  box-shadow:
-    0 8px 30px oklch(0 0 0 / 40%),
-    0 2px 8px oklch(0 0 0 / 25%);
-}
-
-/* ─── Sheets — consistent overlay treatment ───────────────── */
-[data-slot="sheet-content"] {
-  box-shadow:
-    -8px 0 30px oklch(0.80 0.008 250 / 20%),
-    -2px 0 8px oklch(0.88 0.006 250 / 12%);
-}
-.dark [data-slot="sheet-content"] {
-  box-shadow:
-    -8px 0 30px oklch(0 0 0 / 35%),
-    -2px 0 8px oklch(0 0 0 / 20%);
-}
-
-/* ─── Toasts — match clinic palette ───────────────────────── */
-.cn-toast {
-  box-shadow:
-    0 4px 20px oklch(0.82 0.008 250 / 20%),
-    0 1px 4px oklch(0.88 0.006 250 / 15%) !important;
-}
-.dark .cn-toast {
-  box-shadow:
-    0 4px 20px oklch(0 0 0 / 35%),
-    0 1px 4px oklch(0 0 0 / 20%) !important;
-}
-
-/* ─── Skeleton loaders — blue-gray pulse ──────────────────── */
-[data-slot="skeleton"] {
-  background: oklch(0.94 0.006 250);
-}
-.dark [data-slot="skeleton"] {
-  background: oklch(0.26 0.012 250);
-}
-
-/* ─── Sidebar — hover & active states ─────────────────────── */
-
-/* Hover — subtle teal lift */
-[data-sidebar="menu-button"]:hover {
-  background: oklch(0.27 0.035 210);
-  color: oklch(0.90 0.01 210);
-}
-
-/* Active — prominent teal accent bar + distinct background */
-[data-sidebar="menu-button"][data-active="true"] {
-  background: oklch(0.32 0.05 210);
-  color: oklch(0.96 0.005 210);
-  box-shadow: inset 3px 0 0 oklch(0.62 0.14 210);
-}
-[data-sidebar="menu-button"][data-active="true"]:hover {
-  background: oklch(0.34 0.055 210);
-}
-
-/* ─── Header bar — subtle bottom border ───────────────────── */
-[data-slot="sidebar-inset"] > header {
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 10px;
+  background: oklch(0.4 0 0);
 }
