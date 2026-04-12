@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { tenantSql } from '@/lib/db/tenant'
+import { CACHE_TAGS } from '@/lib/cache-tags'
 
 export type DashboardStats = {
   todayAppointments: number
@@ -132,6 +133,6 @@ export function fetchDashboardStats(clinicSlug: string, doctorIds: string[]): Pr
   return unstable_cache(
     () => _fetchDashboardStats(clinicSlug, doctorIds),
     [key],
-    { tags: [`dashboard:${clinicSlug}`] }
+    { tags: [CACHE_TAGS.dashboard(clinicSlug)], revalidate: 300 }
   )()
 }

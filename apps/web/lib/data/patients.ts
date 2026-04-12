@@ -1,5 +1,3 @@
-'use server'
-
 // Data layer — owns all DB queries and row mapping for visits & patients.
 // No auth, no FormData, no revalidation — those belong in actions/.
 

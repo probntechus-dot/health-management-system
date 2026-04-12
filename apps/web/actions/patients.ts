@@ -2,9 +2,9 @@
 
 import { headers } from 'next/headers'
 import { requireAuth } from '@/lib/auth'
-import { revalidatePath } from 'next/cache'
-import { updateTag } from 'next/cache'
+import { revalidatePath, updateTag } from 'next/cache'
 import { fetchVisits, findOrCreatePatient, insertVisit, patchVisitStatus } from '@/lib/data/patients'
+import { CACHE_TAGS } from '@/lib/cache-tags'
 import { getAllocatedDoctorIds } from '@/lib/data/clinic'
 import { tenantSql } from '@/lib/db/tenant'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -108,7 +108,7 @@ export async function createVisit(formData: FormData) {
 
   revalidatePath('/receptionist')
   revalidatePath('/doctor')
-  updateTag(`dashboard:${session.clinicSlug}`)
+  updateTag(CACHE_TAGS.dashboard(session.clinicSlug))
   emitQueueEvent(session.clinicSlug, { type: 'visit_added', doctorId: targetDoctorId })
 
   return { success: true, visit: visitResult.data }
@@ -155,7 +155,7 @@ export async function updateVisitStatus(visitId: string, status: VisitStatus) {
 
   revalidatePath('/receptionist')
   revalidatePath('/doctor')
-  updateTag(`dashboard:${session.clinicSlug}`)
+  updateTag(CACHE_TAGS.dashboard(session.clinicSlug))
   emitQueueEvent(session.clinicSlug, { type: 'status_changed', visitId, status, doctorId })
 
   return { success: true, visit: result.data }

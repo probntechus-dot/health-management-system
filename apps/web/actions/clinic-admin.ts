@@ -6,6 +6,8 @@ import { updateTag } from 'next/cache'
 import { appPool } from '@/lib/db/index'
 import { requireRole, invalidateUserSessions } from '@/lib/auth'
 import { getErrorMessage } from '@/lib/errors'
+import { CACHE_TAGS } from '@/lib/cache-tags'
+import { encryptDisplayPassword, decryptDisplayPassword } from '@/lib/crypto'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,6 +72,7 @@ export async function getClinicUsers(): Promise<ClinicUserRow[]> {
   return users.map(u => ({
     ...u,
     role: u.role as ClinicUserRow['role'],
+    display_password: u.display_password ? decryptDisplayPassword(u.display_password) : null,
     allocated_doctor_ids: allocations
       .filter(a => a.receptionist_id === u.id)
       .map(a => a.doctor_id),
@@ -162,7 +165,7 @@ export async function addUser(data: {
           ${data.fullName.trim()},
           ${data.specialization?.trim() || null},
           ${data.credentials?.trim() || null},
-          ${data.password}
+          ${encryptDisplayPassword(data.password)}
         )
         RETURNING id
       `
@@ -233,14 +236,14 @@ export async function updateUser(
         specialization   = CASE WHEN ${data.specialization !== undefined} THEN ${data.specialization?.trim() || null} ELSE specialization END,
         credentials      = CASE WHEN ${data.credentials !== undefined} THEN ${data.credentials?.trim() || null} ELSE credentials END,
         password_hash    = COALESCE(${passwordHash}, password_hash),
-        display_password = COALESCE(${data.newPassword || null}, display_password),
+        display_password = COALESCE(${data.newPassword ? encryptDisplayPassword(data.newPassword) : null}, display_password),
         session_version  = CASE WHEN ${passwordHash !== null} THEN session_version + 1 ELSE session_version END
       WHERE id = ${userId}
     `
     // Bust the doctor-profile cache if credentials/specialization changed so
     // the consultation page picks up the new values on next render.
     if (data.credentials !== undefined || data.specialization !== undefined) {
-      updateTag(`doctor-profile:${userId}`)
+      updateTag(CACHE_TAGS.doctorProfile(userId))
     }
     return { success: true }
   } catch (error) {
@@ -286,6 +289,8 @@ export async function setReceptionistDoctors(
         `
       }
     })
+    // Bust the allocation cache so the receptionist sees the new doctor list
+    updateTag(CACHE_TAGS.allocations(receptionistId))
     return { success: true }
   } catch (error) {
     return { error: getErrorMessage(error, 'Failed to update doctor allocations') }

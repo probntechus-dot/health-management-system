@@ -5,6 +5,7 @@ import { updateTag } from 'next/cache'
 import { appPool } from '@/lib/db/index'
 import { requireAuth, writeSessionCookies, invalidateUserSessions } from '@/lib/auth'
 import { getErrorMessage } from '@/lib/errors'
+import { CACHE_TAGS } from '@/lib/cache-tags'
 
 // ── Profile actions ───────────────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ export async function updateSpecialization(specialization: string): Promise<{ su
     `
     await writeSessionCookies({ ...session, specialization: specialization || null })
     // Bust the doctor-profile cache so the consultation page picks up the new value
-    updateTag(`doctor-profile:${session.userId}`)
+    updateTag(CACHE_TAGS.doctorProfile(session.userId))
     return { success: true }
   } catch (error) {
     return { error: getErrorMessage(error, 'Failed to update specialization') }

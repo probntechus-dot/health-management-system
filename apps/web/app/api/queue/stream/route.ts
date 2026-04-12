@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { getClinicEmitter, QUEUE_EVENT } from '@/lib/events'
 import { checkRateLimit } from '@/lib/rate-limit'
 import type { QueueEvent } from '@/lib/events'
@@ -56,7 +57,19 @@ export async function GET(request: NextRequest) {
   let userId: string
   let sessionVersion: number
   try {
-    const session = JSON.parse(raw) as { clinicSlug: string; userId: string; sessionVersion?: number }
+    const dotIdx = raw.lastIndexOf('.')
+    if (dotIdx === -1) return new Response('Invalid session', { status: 401 })
+    const payload = raw.slice(0, dotIdx)
+    const signature = raw.slice(dotIdx + 1)
+
+    const secret = process.env.SESSION_SECRET
+    if (!secret) return new Response('Server configuration error', { status: 500 })
+    const expected = createHmac('sha256', secret).update(payload).digest('hex')
+    if (!timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
+      return new Response('Invalid session', { status: 401 })
+    }
+
+    const session = JSON.parse(payload) as { clinicSlug: string; userId: string; sessionVersion?: number }
     clinicSlug = session.clinicSlug
     userId = session.userId
     sessionVersion = session.sessionVersion ?? 0

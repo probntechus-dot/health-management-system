@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { appPool } from '@/lib/db/index'
 
 // Re-export shared types/constants so server code can import everything from '@/lib/auth'
@@ -12,13 +13,40 @@ import type { Session, SessionUI } from './auth-shared'
 const SESSION_COOKIE = 'clinic_session'
 const SESSION_UI_COOKIE = 'clinic_session_ui'
 
+// ── HMAC signing helpers ────────────────────────────────────────────────────
+
+function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET
+  if (!secret) throw new Error('SESSION_SECRET environment variable is required')
+  return secret
+}
+
+function signPayload(payload: string): string {
+  return createHmac('sha256', getSessionSecret()).update(payload).digest('hex')
+}
+
+function verifySignature(payload: string, signature: string): boolean {
+  const expected = signPayload(payload)
+  try {
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+  } catch {
+    return false
+  }
+}
+
 export const getSession = cache(async (): Promise<Session | null> => {
   const cookieStore = await cookies()
   const raw = cookieStore.get(SESSION_COOKIE)?.value
   if (!raw) return null
 
   try {
-    const parsed = JSON.parse(raw)
+    const dotIdx = raw.lastIndexOf('.')
+    if (dotIdx === -1) return null
+    const payload = raw.slice(0, dotIdx)
+    const signature = raw.slice(dotIdx + 1)
+    if (!verifySignature(payload, signature)) return null
+
+    const parsed = JSON.parse(payload)
     const session: Session = { specialization: null, sessionVersion: 0, ...parsed }
     return session
   } catch {
@@ -68,7 +96,9 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 /** Write both the httpOnly session cookie and the client-readable UI cookie. */
 export async function writeSessionCookies(session: Session) {
   const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE, JSON.stringify(session), {
+  const payload = JSON.stringify(session)
+  const signature = signPayload(payload)
+  cookieStore.set(SESSION_COOKIE, `${payload}.${signature}`, {
     httpOnly: true,
     secure: IS_PRODUCTION,
     sameSite: 'lax',

@@ -1,10 +1,13 @@
 "use server"
 
 import { hash } from "bcryptjs"
+import { updateTag } from "next/cache"
 import { adminPool } from "@/lib/db/index"
 import { createClinicSchema, dropClinicSchema } from "@/lib/db/provision"
 import { deleteClinicEmitter } from "@/lib/events"
 import { getErrorMessage } from "@/lib/errors"
+import { CACHE_TAGS } from "@/lib/cache-tags"
+import { encryptDisplayPassword, decryptDisplayPassword } from "@/lib/crypto"
 import { requireAdmin } from "./auth"
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -220,7 +223,7 @@ export async function addClinic(input: AddClinicInput) {
 
     await adminPool`
       INSERT INTO clinic_users (clinic_id, email, password_hash, role, full_name, display_password)
-      VALUES (${clinicId}, ${adminEmail}, ${adminHash}, 'clinic_admin', ${adminFullName}, ${adminPassword})
+      VALUES (${clinicId}, ${adminEmail}, ${adminHash}, 'clinic_admin', ${adminFullName}, ${encryptDisplayPassword(adminPassword)})
     `
     await createClinicSchema(slug, adminPool)
 
@@ -357,6 +360,13 @@ export async function updateClinic(
       await invalidateClinicSessions(id)
     }
 
+    // Bust the clinic-info cache so the doctor's consultation page
+    // picks up updated phone/address/website on next render.
+    if (data.phone !== undefined || data.address !== undefined || data.website !== undefined) {
+      const [clinic] = await adminPool<{ slug: string }[]>`SELECT slug FROM clinics WHERE id = ${id}`
+      if (clinic) updateTag(CACHE_TAGS.clinicInfo(clinic.slug))
+    }
+
     return { success: true }
   } catch (error) {
     return { error: getErrorMessage(error) }
@@ -377,7 +387,10 @@ export async function listClinicUsers(
       CASE role WHEN 'clinic_admin' THEN 0 WHEN 'doctor' THEN 1 WHEN 'receptionist' THEN 2 END,
       full_name
   `
-  return rows
+  return rows.map(r => ({
+    ...r,
+    display_password: r.display_password ? decryptDisplayPassword(r.display_password) : null,
+  }))
 }
 
 export async function updateClinicUser(
@@ -417,7 +430,7 @@ export async function updateClinicUser(
         specialization   = CASE WHEN ${data.specialization !== undefined} THEN ${data.specialization?.trim() || null} ELSE specialization END,
         credentials      = CASE WHEN ${data.credentials !== undefined} THEN ${data.credentials?.trim() || null} ELSE credentials END,
         password_hash    = COALESCE(${passwordHash}, password_hash),
-        display_password = COALESCE(${data.newPassword || null}, display_password),
+        display_password = COALESCE(${data.newPassword ? encryptDisplayPassword(data.newPassword) : null}, display_password),
         session_version  = CASE WHEN ${passwordHash !== null} THEN session_version + 1 ELSE session_version END
       WHERE id = ${userId}
     `
@@ -489,7 +502,7 @@ export async function addClinicUser(
         ${data.fullName.trim()},
         ${data.specialization?.trim() || null},
         ${data.credentials?.trim() || null},
-        ${data.password}
+        ${encryptDisplayPassword(data.password)}
       )
     `
     return { success: true }

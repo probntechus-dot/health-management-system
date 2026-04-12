@@ -12,7 +12,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.2.2",
     "@react-pdf/renderer": "^4.3.2",
     "@tanstack/react-table": "^8.21.3",
     "@workspace/ui": "*",
@@ -25,9 +24,7 @@
     "postgres": "^3.4.8",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-hook-form": "^7.71.2",
-    "sonner": "^2.0.7",
-    "zod": "^3.25.76"
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",

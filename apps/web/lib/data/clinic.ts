@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { appPool } from '@/lib/db/index'
+import { CACHE_TAGS } from '@/lib/cache-tags'
 
 export type ClinicInfo = {
   phone: string | null
@@ -32,7 +33,7 @@ export const getClinicInfo = cache(
         }
       },
       [`clinic-info:${clinicSlug}`],
-      { tags: [`clinic-info:${clinicSlug}`] }
+      { tags: [CACHE_TAGS.clinicInfo(clinicSlug)], revalidate: 3600 }
     )()
 )
 
@@ -43,45 +44,59 @@ export type AllocatedDoctor = {
 }
 
 /** Get the doctor IDs a user is scoped to. Doctor → [self]. Receptionist → allocated doctors. */
-export const getAllocatedDoctorIds = cache(async (
-  userId: string,
-  role: string,
-  _clinicId: string,
-): Promise<string[]> => {
-  if (role === 'doctor') return [userId]
-  if (role === 'receptionist') {
-    const rows = await appPool<{ doctor_id: string }[]>`
-      SELECT doctor_id FROM receptionist_doctors WHERE receptionist_id = ${userId}
-    `
-    return rows.map(r => r.doctor_id)
+export const getAllocatedDoctorIds = cache(
+  (userId: string, role: string, _clinicId: string): Promise<string[]> => {
+    if (role === 'doctor') return Promise.resolve([userId])
+    if (role === 'receptionist') {
+      return unstable_cache(
+        async () => {
+          const rows = await appPool<{ doctor_id: string }[]>`
+            SELECT doctor_id FROM receptionist_doctors WHERE receptionist_id = ${userId}
+          `
+          return rows.map(r => r.doctor_id)
+        },
+        [`allocated-doctor-ids:${userId}`],
+        { tags: [CACHE_TAGS.allocations(userId)], revalidate: 600 }
+      )()
+    }
+    return Promise.resolve([])
   }
-  return []
-})
+)
 
 /** Get the full doctor list a receptionist is allocated to. */
-export const getAllocatedDoctors = cache(async (
-  userId: string,
-  role: string,
-  _clinicId: string,
-): Promise<AllocatedDoctor[]> => {
-  if (role === 'doctor') {
-    const rows = await appPool<AllocatedDoctor[]>`
-      SELECT id, full_name, specialization FROM clinic_users WHERE id = ${userId}
-    `
-    return rows
+export const getAllocatedDoctors = cache(
+  (userId: string, role: string, _clinicId: string): Promise<AllocatedDoctor[]> => {
+    if (role === 'doctor') {
+      return unstable_cache(
+        async () => {
+          const rows = await appPool<AllocatedDoctor[]>`
+            SELECT id, full_name, specialization FROM clinic_users WHERE id = ${userId}
+          `
+          return rows
+        },
+        [`allocated-doctors:${userId}:doctor`],
+        { tags: [CACHE_TAGS.doctorProfile(userId)], revalidate: 3600 }
+      )()
+    }
+    if (role === 'receptionist') {
+      return unstable_cache(
+        async () => {
+          const rows = await appPool<AllocatedDoctor[]>`
+            SELECT cu.id, cu.full_name, cu.specialization
+            FROM receptionist_doctors rd
+            JOIN clinic_users cu ON cu.id = rd.doctor_id
+            WHERE rd.receptionist_id = ${userId} AND cu.is_active = true
+            ORDER BY cu.full_name
+          `
+          return rows
+        },
+        [`allocated-doctors:${userId}:receptionist`],
+        { tags: [CACHE_TAGS.allocations(userId)], revalidate: 600 }
+      )()
+    }
+    return Promise.resolve([])
   }
-  if (role === 'receptionist') {
-    const rows = await appPool<AllocatedDoctor[]>`
-      SELECT cu.id, cu.full_name, cu.specialization
-      FROM receptionist_doctors rd
-      JOIN clinic_users cu ON cu.id = rd.doctor_id
-      WHERE rd.receptionist_id = ${userId} AND cu.is_active = true
-      ORDER BY cu.full_name
-    `
-    return rows
-  }
-  return []
-})
+)
 
 /** Fetch doctor credentials (e.g., "MBBS, FCPS"). Cached across requests; invalidated by tag. */
 export const getDoctorProfile = cache(
@@ -98,6 +113,6 @@ export const getDoctorProfile = cache(
         }
       },
       [`doctor-profile:${userId}`],
-      { tags: [`doctor-profile:${userId}`] }
+      { tags: [CACHE_TAGS.doctorProfile(userId)], revalidate: 3600 }
     )()
 )
