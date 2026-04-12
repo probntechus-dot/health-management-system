@@ -1,9 +1,11 @@
-import { requireRole } from "@/lib/auth"
+import { getSessionFromHeaders } from "@/lib/auth"
+import { redirect } from "next/navigation"
 import { getClinicInfo, getDoctorProfile } from "@/lib/data/clinic"
 import { DoctorDashboard } from "@/components/clinic/doctor-dashboard"
 
 export default async function ConsultationPage() {
-  const session = await requireRole(["doctor"])
+  const session = await getSessionFromHeaders()
+  if (!session) redirect("/login")
   const [clinic, doctor] = await Promise.all([
     getClinicInfo(session.clinicSlug),
     getDoctorProfile(session.userId),

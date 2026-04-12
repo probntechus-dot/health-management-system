@@ -19,6 +19,7 @@ export async function updateProfileName(fullName: string): Promise<{ success: tr
   try {
     await appPool`UPDATE clinic_users SET full_name = ${fullName} WHERE id = ${session.userId}`
     await writeSessionCookies({ ...session, fullName })
+    updateTag(CACHE_TAGS.doctorProfile(session.userId))
     return { success: true }
   } catch (error) {
     return { error: getErrorMessage(error, 'Failed to update name') }

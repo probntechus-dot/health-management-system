@@ -1,6 +1,6 @@
 import { cache } from 'react'
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { appPool } from '@/lib/db/index'
 
@@ -55,17 +55,49 @@ export const getSession = cache(async (): Promise<Session | null> => {
 })
 
 /**
+ * 30s in-memory cache for session validation results.
+ * Keyed by `userId:sessionVersion` — a deactivated user or password change
+ * produces a different sessionVersion, so it always misses and hits the DB.
+ * Same pattern as app/api/queue/stream/route.ts:20-45.
+ */
+declare global {
+  // eslint-disable-next-line no-var
+  var __authSessionCache: Map<string, number> | undefined
+}
+const authSessionCache: Map<string, number> =
+  globalThis.__authSessionCache ??
+  (globalThis.__authSessionCache = new Map())
+
+const AUTH_CACHE_TTL_MS = 30_000
+
+/**
  * Validate session version against DB.  Cached per request so multiple
- * calls within a single render only hit the database once.
+ * calls within a single render only hit the database once.  Additionally
+ * uses a 30s in-memory cache to skip the DB round-trip on repeat navigations.
  */
 const validateSessionVersion = cache(async (userId: string, cookieVersion: number): Promise<boolean> => {
+  const cacheKey = `${userId}:${cookieVersion}`
+  const cachedAt = authSessionCache.get(cacheKey)
+  if (cachedAt !== undefined && Date.now() - cachedAt < AUTH_CACHE_TTL_MS) {
+    return true
+  }
+
   try {
     const rows = await appPool<{ session_version: number; is_active: boolean }[]>`
       SELECT session_version, is_active FROM clinic_users WHERE id = ${userId} LIMIT 1
     `
     if (!rows[0]) return false
     if (!rows[0].is_active) return false
-    return rows[0].session_version === cookieVersion
+    if (rows[0].session_version !== cookieVersion) return false
+
+    authSessionCache.set(cacheKey, Date.now())
+    if (authSessionCache.size > 500) {
+      const now = Date.now()
+      for (const [k, ts] of authSessionCache.entries()) {
+        if (now - ts > AUTH_CACHE_TTL_MS) authSessionCache.delete(k)
+      }
+    }
+    return true
   } catch {
     // DB errors should deny access, not grant it
     return false
@@ -131,3 +163,24 @@ export async function clearSessionCookies() {
   cookieStore.delete(SESSION_COOKIE)
   cookieStore.delete(SESSION_UI_COOKIE)
 }
+
+/**
+ * Read session from request headers injected by middleware.
+ * Zero DB queries — middleware already verified the HMAC signature.
+ * Use this in Server Components and layouts instead of requireAuth().
+ */
+export const getSessionFromHeaders = cache(async (): Promise<Session | null> => {
+  const h = await headers()
+  const userId = h.get('x-session-userId')
+  if (!userId) return null
+  return {
+    userId,
+    email:          h.get('x-session-email') ?? '',
+    role:           (h.get('x-session-role') ?? 'doctor') as Session['role'],
+    fullName:       h.get('x-session-fullName') ?? '',
+    clinicId:       h.get('x-session-clinicId') ?? '',
+    clinicSlug:     h.get('x-session-clinicSlug') ?? '',
+    specialization: h.get('x-session-specialization') || null,
+    sessionVersion: parseInt(h.get('x-session-sessionVersion') ?? '0', 10),
+  }
+})

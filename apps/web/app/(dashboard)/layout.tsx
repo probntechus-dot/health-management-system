@@ -8,7 +8,7 @@ import { Separator } from "@workspace/ui/components/separator"
 import { Toaster } from "@workspace/ui/components/sonner"
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb"
 import { NotificationBell } from "@/components/notification-bell"
-import { getSession } from "@/lib/auth"
+import { getSessionFromHeaders } from "@/lib/auth"
 import type { SessionUI } from "@/lib/auth-shared"
 
 export default async function DashboardLayout({
@@ -16,10 +16,8 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Fetch session once at layout level and pass it down as a prop.
-  // This replaces the client-side cookie re-read in AppSidebar on every
-  // navigation, removing unnecessary JS execution on the critical path.
-  const session = await getSession()
+  // Read session from middleware-injected headers — zero DB queries.
+  const session = await getSessionFromHeaders()
   const sessionUI: SessionUI | null = session
     ? {
         fullName: session.fullName,

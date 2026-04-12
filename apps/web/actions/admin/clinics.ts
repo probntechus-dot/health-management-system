@@ -434,6 +434,9 @@ export async function updateClinicUser(
         session_version  = CASE WHEN ${passwordHash !== null} THEN session_version + 1 ELSE session_version END
       WHERE id = ${userId}
     `
+    if (data.fullName || data.credentials !== undefined || data.specialization !== undefined) {
+      updateTag(CACHE_TAGS.doctorProfile(userId))
+    }
     return { success: true }
   } catch (error) {
     return { error: getErrorMessage(error) }
@@ -529,6 +532,17 @@ export async function toggleClinicUserActive(
     await adminPool`UPDATE clinic_users SET is_active = ${isActive} WHERE id = ${userId}`
     if (!isActive) {
       await adminPool`UPDATE clinic_users SET session_version = session_version + 1 WHERE id = ${userId}`
+    }
+    // If toggling a doctor, bust allocation caches for every receptionist
+    // allocated to them so the receptionist's dropdown reflects the change.
+    if (user.role === "doctor") {
+      updateTag(CACHE_TAGS.doctorProfile(userId))
+      const allocatedReceptionists = await adminPool<{ receptionist_id: string }[]>`
+        SELECT receptionist_id FROM receptionist_doctors WHERE doctor_id = ${userId}
+      `
+      for (const r of allocatedReceptionists) {
+        updateTag(CACHE_TAGS.allocations(r.receptionist_id))
+      }
     }
     return { success: true }
   } catch (error) {

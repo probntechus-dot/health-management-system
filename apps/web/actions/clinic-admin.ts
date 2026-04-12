@@ -240,9 +240,9 @@ export async function updateUser(
         session_version  = CASE WHEN ${passwordHash !== null} THEN session_version + 1 ELSE session_version END
       WHERE id = ${userId}
     `
-    // Bust the doctor-profile cache if credentials/specialization changed so
-    // the consultation page picks up the new values on next render.
-    if (data.credentials !== undefined || data.specialization !== undefined) {
+    // Bust the doctor-profile cache if name/credentials/specialization changed so
+    // the consultation page and receptionist allocation dropdown pick up the new values.
+    if (data.fullName || data.credentials !== undefined || data.specialization !== undefined) {
       updateTag(CACHE_TAGS.doctorProfile(userId))
     }
     return { success: true }
@@ -330,6 +330,17 @@ export async function toggleUserActive(
     // Deactivating a user should invalidate their sessions
     if (!isActive) {
       await invalidateUserSessions(userId)
+    }
+    // If toggling a doctor, bust allocation caches for every receptionist
+    // allocated to them so the receptionist's dropdown reflects the change.
+    if (user.role === 'doctor') {
+      updateTag(CACHE_TAGS.doctorProfile(userId))
+      const allocatedReceptionists = await appPool<{ receptionist_id: string }[]>`
+        SELECT receptionist_id FROM receptionist_doctors WHERE doctor_id = ${userId}
+      `
+      for (const r of allocatedReceptionists) {
+        updateTag(CACHE_TAGS.allocations(r.receptionist_id))
+      }
     }
     return { success: true }
   } catch (error) {
