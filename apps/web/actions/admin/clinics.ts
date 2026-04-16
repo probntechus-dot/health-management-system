@@ -84,9 +84,10 @@ export async function runClinicsMigration() {
   `
   await adminPool`
     ALTER TABLE clinic_users
-      ADD COLUMN IF NOT EXISTS specialization    TEXT,
-      ADD COLUMN IF NOT EXISTS session_version   INTEGER NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS display_password  TEXT
+      ADD COLUMN IF NOT EXISTS specialization            TEXT,
+      ADD COLUMN IF NOT EXISTS session_version           INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS display_password          TEXT,
+      ADD COLUMN IF NOT EXISTS prescription_template_id  TEXT DEFAULT 'classic'
   `
   await adminPool.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON clinic_users TO clinic_app`)
   await adminPool.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON receptionist_doctors TO clinic_app`)

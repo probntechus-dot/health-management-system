@@ -86,6 +86,7 @@ interface PrescriptionModalProps {
   doctorName?: string
   doctorSpecialty?: string
   doctorCredentials?: string
+  prescriptionTemplateId?: string
   clinicPhone?: string
   clinicAddress?: string
   clinicWebsite?: string
@@ -308,7 +309,7 @@ function isoToDayDiff(iso: string | null | undefined): string {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function PrescriptionModal({ clinicSlug, visit, onSave, onChecked, onClose, editPrescription, doctorName, doctorSpecialty, doctorCredentials, clinicPhone, clinicAddress, clinicWebsite }: PrescriptionModalProps) {
+export function PrescriptionModal({ clinicSlug, visit, onSave, onChecked, onClose, editPrescription, doctorName, doctorSpecialty, doctorCredentials, prescriptionTemplateId, clinicPhone, clinicAddress, clinicWebsite }: PrescriptionModalProps) {
   const isEdit = !!editPrescription
 
   const [diagnosis, setDiagnosis] = useState(editPrescription?.diagnosis || '')
@@ -978,6 +979,7 @@ export function PrescriptionModal({ clinicSlug, visit, onSave, onChecked, onClos
               doctorName={doctorName}
               doctorSpecialty={doctorSpecialty}
               doctorCredentials={doctorCredentials}
+              prescriptionTemplateId={prescriptionTemplateId}
               clinicPhone={clinicPhone}
               clinicAddress={clinicAddress}
               clinicWebsite={clinicWebsite}

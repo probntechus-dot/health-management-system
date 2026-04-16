@@ -19,6 +19,7 @@ export default async function ConsultationPage() {
         doctorName={session.fullName}
         doctorSpecialty={session.specialization ?? undefined}
         doctorCredentials={doctor.credentials ?? undefined}
+        prescriptionTemplateId={doctor.prescription_template_id ?? undefined}
         clinicPhone={clinic.phone ?? undefined}
         clinicAddress={clinic.address ?? undefined}
         clinicWebsite={clinic.website ?? undefined}

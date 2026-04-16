@@ -28,6 +28,7 @@ interface PrescriptionHistoryProps {
   doctorName?: string
   doctorSpecialty?: string
   doctorCredentials?: string
+  prescriptionTemplateId?: string
   clinicPhone?: string
   clinicAddress?: string
   clinicWebsite?: string
@@ -67,6 +68,7 @@ function PrescriptionCard({
   doctorName,
   doctorSpecialty,
   doctorCredentials,
+  prescriptionTemplateId,
   clinicPhone,
   clinicAddress,
   clinicWebsite,
@@ -77,6 +79,7 @@ function PrescriptionCard({
   doctorName?: string
   doctorSpecialty?: string
   doctorCredentials?: string
+  prescriptionTemplateId?: string
   clinicPhone?: string
   clinicAddress?: string
   clinicWebsite?: string
@@ -128,6 +131,7 @@ function PrescriptionCard({
               doctorName={doctorName}
               doctorSpecialty={doctorSpecialty}
               doctorCredentials={doctorCredentials}
+              prescriptionTemplateId={prescriptionTemplateId}
               clinicPhone={clinicPhone}
               clinicAddress={clinicAddress}
               clinicWebsite={clinicWebsite}
@@ -235,6 +239,7 @@ export function PrescriptionHistory({
   doctorName,
   doctorSpecialty,
   doctorCredentials,
+  prescriptionTemplateId,
   clinicPhone,
   clinicAddress,
   clinicWebsite,
@@ -327,6 +332,7 @@ export function PrescriptionHistory({
               doctorName={doctorName}
               doctorSpecialty={doctorSpecialty}
               doctorCredentials={doctorCredentials}
+              prescriptionTemplateId={prescriptionTemplateId}
               clinicPhone={clinicPhone}
               clinicAddress={clinicAddress}
               clinicWebsite={clinicWebsite}

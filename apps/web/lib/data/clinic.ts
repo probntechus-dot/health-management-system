@@ -11,6 +11,7 @@ export type ClinicInfo = {
 
 export type DoctorProfile = {
   credentials: string | null
+  prescription_template_id: string | null
 }
 
 // ── Cross-request persistent cache tags ──────────────────────────────────────
@@ -104,12 +105,12 @@ export const getDoctorProfile = cache(
     unstable_cache(
       async () => {
         try {
-          const rows = await appPool<{ credentials: string | null }[]>`
-            SELECT credentials FROM clinic_users WHERE id = ${userId} LIMIT 1
+          const rows = await appPool<{ credentials: string | null; prescription_template_id: string | null }[]>`
+            SELECT credentials, prescription_template_id FROM clinic_users WHERE id = ${userId} LIMIT 1
           `
-          return rows[0] ?? { credentials: null }
+          return rows[0] ?? { credentials: null, prescription_template_id: null }
         } catch {
-          return { credentials: null }
+          return { credentials: null, prescription_template_id: null }
         }
       },
       [`doctor-profile:${userId}`],

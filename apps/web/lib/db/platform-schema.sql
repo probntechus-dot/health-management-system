@@ -38,8 +38,9 @@ CREATE TABLE IF NOT EXISTS clinic_users (
   credentials      TEXT,
   is_active        BOOLEAN     NOT NULL DEFAULT true,
   session_version  INTEGER     NOT NULL DEFAULT 0,
-  display_password TEXT,
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  display_password          TEXT,
+  prescription_template_id  TEXT DEFAULT 'classic',
+  created_at                TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_clinic_users_email     ON clinic_users(email);

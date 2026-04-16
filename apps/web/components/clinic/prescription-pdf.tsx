@@ -31,6 +31,7 @@ export interface PrescriptionDownloadButtonProps {
   clinicPhone?: string
   clinicAddress?: string
   clinicWebsite?: string
+  prescriptionTemplateId?: string
 }
 
 const PrescriptionDownloadInner = dynamic(

@@ -45,6 +45,20 @@ export async function updateSpecialization(specialization: string): Promise<{ su
   }
 }
 
+export async function updatePrescriptionTemplate(templateId: string): Promise<{ success: true } | { error: string }> {
+  const session = await requireAuth()
+
+  if (!templateId || templateId.length > 50) return { error: 'Invalid template id' }
+
+  try {
+    await appPool`UPDATE clinic_users SET prescription_template_id = ${templateId} WHERE id = ${session.userId}`
+    updateTag(CACHE_TAGS.doctorProfile(session.userId))
+    return { success: true }
+  } catch (error) {
+    return { error: getErrorMessage(error, 'Failed to update prescription template') }
+  }
+}
+
 export async function updateProfilePassword(
   currentPassword: string,
   newPassword: string,

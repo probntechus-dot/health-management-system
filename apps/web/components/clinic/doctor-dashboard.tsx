@@ -121,6 +121,7 @@ interface DoctorDashboardProps {
   doctorName?: string
   doctorSpecialty?: string
   doctorCredentials?: string
+  prescriptionTemplateId?: string
   clinicPhone?: string
   clinicAddress?: string
   clinicWebsite?: string
@@ -132,6 +133,7 @@ export function DoctorDashboard({
   doctorName,
   doctorSpecialty,
   doctorCredentials,
+  prescriptionTemplateId,
   clinicPhone,
   clinicAddress,
   clinicWebsite,
@@ -212,6 +214,7 @@ export function DoctorDashboard({
           doctorName={doctorName}
           doctorSpecialty={doctorSpecialty}
           doctorCredentials={doctorCredentials}
+          prescriptionTemplateId={prescriptionTemplateId}
           clinicPhone={clinicPhone}
           clinicAddress={clinicAddress}
           clinicWebsite={clinicWebsite}
@@ -240,6 +243,7 @@ export function DoctorDashboard({
           doctorName={doctorName}
           doctorSpecialty={doctorSpecialty}
           doctorCredentials={doctorCredentials}
+          prescriptionTemplateId={prescriptionTemplateId}
           clinicPhone={clinicPhone}
           clinicAddress={clinicAddress}
           clinicWebsite={clinicWebsite}
