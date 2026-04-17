@@ -43,36 +43,36 @@
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
+    --background: oklch(0.26 0.004 270);
+    --foreground: oklch(0.94 0.004 270);
+    --card: oklch(0.31 0.005 270);
+    --card-foreground: oklch(0.94 0.004 270);
+    --popover: oklch(0.31 0.005 270);
+    --popover-foreground: oklch(0.94 0.004 270);
     --primary: oklch(0.62 0.12 210);
     --primary-foreground: oklch(1 0 0);
     --secondary: oklch(0.748 0.188 131.7);
     --secondary-foreground: oklch(0.145 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.40 0.005 270);
+    --muted-foreground: oklch(0.68 0.005 270);
+    --accent: oklch(0.40 0.005 270);
+    --accent-foreground: oklch(0.94 0.004 270);
     --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
+    --border: oklch(1 0 0 / 9%);
+    --input: oklch(1 0 0 / 11%);
     --ring: oklch(0.62 0.12 210);
     --chart-1: oklch(0.809 0.105 251.813);
     --chart-2: oklch(0.623 0.214 259.815);
     --chart-3: oklch(0.546 0.245 262.881);
     --chart-4: oklch(0.488 0.243 264.376);
     --chart-5: oklch(0.424 0.199 265.638);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar: oklch(0.28 0.004 270);
+    --sidebar-foreground: oklch(0.94 0.004 270);
     --sidebar-primary: oklch(0.62 0.12 210);
     --sidebar-primary-foreground: oklch(1 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-accent: oklch(0.40 0.005 270);
+    --sidebar-accent-foreground: oklch(0.94 0.004 270);
+    --sidebar-border: oklch(1 0 0 / 9%);
     --sidebar-ring: oklch(0.60 0.10 210);
 }
 
@@ -148,7 +148,7 @@
   scrollbar-color: oklch(93.044% 0.00257 107.079) transparent;
 }
 .dark * {
-  scrollbar-color: oklch(0.3 0 0) transparent;
+  scrollbar-color: oklch(0.42 0.005 270) transparent;
 }
 ::-webkit-scrollbar {
   width: 5px;
@@ -165,8 +165,8 @@
   background: oklch(0.75 0 0);
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: oklch(0.3 0 0);
+  background: oklch(0.42 0.005 270);
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.4 0 0);
+  background: oklch(0.52 0.005 270);
 }
