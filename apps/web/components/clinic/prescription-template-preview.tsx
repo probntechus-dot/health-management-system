@@ -1,5 +1,6 @@
 // HTML previews for prescription templates — no @react-pdf/renderer, instant render.
 // Each preview faithfully mirrors its PDF counterpart's colors, layout, and personality.
+import type React from 'react'
 
 const DR_FALLBACK = 'Dr. Sarah Ahmed'
 const CRED_FALLBACK = 'MBBS, FCPS'
@@ -12,10 +13,18 @@ const MR = 'MR-000142'
 const DIAG = 'Acute bronchitis with mild pharyngitis'
 const PROBLEMS = 'Persistent cough for 5 days, sore throat, low-grade fever'
 const MEDS = [
-  { n: 'Azithromycin 500mg', d: '1 tab · Once Daily · 3 days' },
-  { n: 'Ibuprofen 400mg', d: '1 tab · Three Times Daily · 5 days' },
-  { n: 'Dextromethorphan 10mg/5ml', d: '2 tsp · Twice Daily · 5 days' },
+  { n: 'Azithromycin 500mg',      d: '1 tab · Once Daily · 3 days',        u: 'ایک گولی روزانہ ایک بار کھانے کے بعد ، 3 دن تک' },
+  { n: 'Ibuprofen 400mg',         d: '1 tab · Three Times Daily · 5 days', u: 'ایک گولی روزانہ تین بار کھانے کے بعد ، 5 دن تک' },
+  { n: 'Dextromethorphan 10mg/5ml', d: '2 tsp · Twice Daily · 5 days',     u: 'دو چمچ روزانہ دو بار کھانے کے بعد ، 5 دن تک' },
 ]
+const URDU_STYLE: React.CSSProperties = {
+  fontFamily: '"Noto Naskh Arabic", "Arial Unicode MS", serif',
+  fontSize: 9.5,
+  color: '#444',
+  marginTop: 2,
+  direction: 'rtl',
+  textAlign: 'right',
+}
 const NOTES = 'Drink plenty of warm fluids. Avoid cold beverages. Rest for 2–3 days.'
 const ALLERGY = 'Penicillin'
 const FOLLOW_UP = 'Apr 24, 2026'
@@ -82,6 +91,7 @@ function ClassicPreview({ dr, spec }: { dr: string; spec: string }) {
               <div style={{ fontSize: 8, color: '#8A95A5', marginBottom: 2 }}>({i + 1})</div>
               <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 2 }}>{m.n}</div>
               <div style={{ fontSize: 8.5, color: '#5A6575' }}>{m.d}</div>
+              {m.u && <div style={URDU_STYLE}>{m.u}</div>}
             </div>
           ))}
           <div style={{ background: '#F5F7FA', padding: '7px 10px', borderRadius: 3, marginTop: 12 }}>
@@ -168,6 +178,7 @@ function ModernPreview({ dr, spec }: { dr: string; spec: string }) {
             <div style={{ padding: '7px 10px' }}>
               <div style={{ fontSize: 10.5, fontWeight: 700, marginBottom: 2 }}>{m.n}</div>
               <div style={{ fontSize: 8.5, color: '#616161' }}>{m.d}</div>
+              {m.u && <div style={URDU_STYLE}>{m.u}</div>}
             </div>
           </div>
         ))}
@@ -230,6 +241,7 @@ function MinimalPreview({ dr, spec }: { dr: string; spec: string }) {
           <div key={i} style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, color: '#111', marginBottom: 2 }}>{i + 1}. {m.n}</div>
             <div style={{ fontSize: 8.5, color: '#333' }}>{m.d}</div>
+            {m.u && <div style={URDU_STYLE}>{m.u}</div>}
           </div>
         ))}
 
@@ -324,12 +336,15 @@ function ClinicalPreview({ dr, spec }: { dr: string; spec: string }) {
             ))}
           </div>
           {MEDS.map((m, i) => (
-            <div key={i} style={{ display: 'flex', background: i % 2 === 1 ? '#FAFAFA' : '#fff', borderBottom: i < MEDS.length - 1 ? '0.5px solid #9E9E9E' : 'none' }}>
-              <div style={{ width: 22, padding: '4px 6px', fontSize: 9, fontWeight: 700, color: '#1B5E20', borderRight: '0.5px solid #9E9E9E' }}>{i + 1}</div>
-              <div style={{ flex: 1, padding: '4px 6px', fontSize: 9, fontWeight: 700, borderRight: '0.5px solid #9E9E9E' }}>{m.n}</div>
-              <div style={{ width: 50, padding: '4px 6px', fontSize: 9, borderRight: '0.5px solid #9E9E9E' }}>1 tab</div>
-              <div style={{ width: 82, padding: '4px 6px', fontSize: 9, borderRight: '0.5px solid #9E9E9E' }}>{m.d.split('·')[1]?.trim()}</div>
-              <div style={{ width: 40, padding: '4px 6px', fontSize: 9 }}>{m.d.split('·')[2]?.replace('days', '').trim()}</div>
+            <div key={i} style={{ borderBottom: i < MEDS.length - 1 ? '0.5px solid #9E9E9E' : 'none' }}>
+              <div style={{ display: 'flex', background: i % 2 === 1 ? '#FAFAFA' : '#fff' }}>
+                <div style={{ width: 22, padding: '4px 6px', fontSize: 9, fontWeight: 700, color: '#1B5E20', borderRight: '0.5px solid #9E9E9E' }}>{i + 1}</div>
+                <div style={{ flex: 1, padding: '4px 6px', fontSize: 9, fontWeight: 700, borderRight: '0.5px solid #9E9E9E' }}>{m.n}</div>
+                <div style={{ width: 50, padding: '4px 6px', fontSize: 9, borderRight: '0.5px solid #9E9E9E' }}>1 tab</div>
+                <div style={{ width: 82, padding: '4px 6px', fontSize: 9, borderRight: '0.5px solid #9E9E9E' }}>{m.d.split('·')[1]?.trim()}</div>
+                <div style={{ width: 40, padding: '4px 6px', fontSize: 9 }}>{m.d.split('·')[2]?.replace('days', '').trim()}</div>
+              </div>
+              {m.u && <div style={{ ...URDU_STYLE, padding: '2px 6px', background: i % 2 === 1 ? '#FAFAFA' : '#fff', borderTop: '0.5px solid #E8F5E9' }}>{m.u}</div>}
             </div>
           ))}
         </div>
@@ -413,6 +428,7 @@ function ElegantPreview({ dr, spec }: { dr: string; spec: string }) {
             <div key={i} style={{ marginBottom: 11, paddingLeft: 8, borderLeft: '2px solid #AED6F1' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#2C3E50', marginBottom: 2 }}>{i + 1}. {m.n}</div>
               <div style={{ fontSize: 8.5, color: '#7F8C8D' }}>{m.d}</div>
+              {m.u && <div style={URDU_STYLE}>{m.u}</div>}
             </div>
           ))}
           <div style={{ background: '#EAF2F8', padding: '7px 10px', borderRadius: 3, marginTop: 12 }}>
@@ -504,6 +520,7 @@ function CompactPreview({ dr, spec }: { dr: string; spec: string }) {
               <div>
                 <div style={{ fontSize: 8.5, fontWeight: 700, marginBottom: 1 }}>{m.n}</div>
                 <div style={{ fontSize: 7, color: '#666' }}>{m.d}</div>
+                {m.u && <div style={{ ...URDU_STYLE, fontSize: 8 }}>{m.u}</div>}
               </div>
             </div>
           ))}
