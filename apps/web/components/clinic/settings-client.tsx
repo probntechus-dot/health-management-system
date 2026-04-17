@@ -24,6 +24,7 @@ import {
   FileTextIcon,
 } from "lucide-react"
 import { TemplatePreview } from "@/components/clinic/prescription-template-preview"
+import { BuyButton, PremiumBadge } from "@/components/buy/buy-button"
 
 const TEMPLATE_OPTIONS = [
   { id: "classic",  name: "Classic",  description: "Traditional letterhead with formal two-column layout — the original design." },
@@ -31,8 +32,11 @@ const TEMPLATE_OPTIONS = [
   { id: "minimal",  name: "Minimal",  description: "Black and white with maximum whitespace and understated typography." },
   { id: "clinical", name: "Clinical", description: "Structured sections with tabular medication list and clear grid layout." },
   { id: "elegant",  name: "Elegant",  description: "Premium feel with refined typography, subtle accents, and decorative borders." },
-  { id: "compact",  name: "Compact",  description: "Denser layout with smaller fonts and tighter spacing — fits more per page." },
+  { id: "compact",  name: "Compact",  description: "Denser layout with smaller fonts and tighter spacing - fits more per page." },
 ] as const
+
+const PREMIUM_TEMPLATE_IDS = new Set<string>(["elegant", "compact"])
+const isPremiumTemplate = (id: string) => PREMIUM_TEMPLATE_IDS.has(id)
 
 interface Props {
   initialFullName: string
@@ -176,6 +180,7 @@ export function SettingsClient({
                 {TEMPLATE_OPTIONS.map((tpl) => {
                   const isSelected = selectedTemplate === tpl.id
                   const isPreviewing = previewId === tpl.id
+                  const isPremium = isPremiumTemplate(tpl.id)
                   return (
                     <button
                       key={tpl.id}
@@ -193,6 +198,11 @@ export function SettingsClient({
                       {isSelected && (
                         <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-primary/10 z-10">
                           <CheckCircleIcon className="size-6 text-primary" />
+                        </span>
+                      )}
+                      {isPremium && !isSelected && (
+                        <span className="absolute top-2 right-2 z-10">
+                          <PremiumBadge />
                         </span>
                       )}
                       <div className="flex items-center gap-2 mb-1">
@@ -242,7 +252,13 @@ export function SettingsClient({
                 <CardTitle className="text-base">
                   {previewTemplateName}
                 </CardTitle>
-                {previewId !== selectedTemplate ? (
+                {isPremiumTemplate(previewId) ? (
+                  <BuyButton
+                    size="sm"
+                    itemId={previewId}
+                    itemName={previewTemplateName ?? previewId}
+                  />
+                ) : previewId !== selectedTemplate ? (
                   <Button size="sm" disabled={templatePending} onClick={() => handleSelectTemplate(previewId)}>
                     {templatePending && <Loader2Icon className="animate-spin" />}
                     {templatePending ? "Saving..." : "Select Template"}
