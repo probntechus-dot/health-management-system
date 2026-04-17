@@ -8,6 +8,7 @@ import { Separator } from "@workspace/ui/components/separator"
 import { Toaster } from "@workspace/ui/components/sonner"
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb"
 import { NotificationBell } from "@/components/notification-bell"
+import { ThemeToggle } from "@/components/theme-provider"
 import { getSessionFromHeaders } from "@/lib/auth"
 import type { SessionUI } from "@/lib/auth-shared"
 
@@ -36,7 +37,8 @@ export default async function DashboardLayout({
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             <DashboardBreadcrumb />
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-1">
+              <ThemeToggle />
               <NotificationBell />
             </div>
           </div>
