@@ -12,7 +12,7 @@ export default async function SettingsPage() {
     : null
 
   return (
-    <div className="max-w-2xl">
+    <div className="w-full">
       <SettingsClient
         initialFullName={session.fullName}
         initialSpecialization={session.specialization ?? ""}
