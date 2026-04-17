@@ -639,7 +639,7 @@ export function PatientQueue({
       </AlertDialog>
 
       {/* Header Card */}
-      <Card>
+      <Card className="bg-muted/50">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle>
