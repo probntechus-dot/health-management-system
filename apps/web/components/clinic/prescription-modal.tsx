@@ -45,6 +45,7 @@ import {
   ChevronRightIcon,
 } from 'lucide-react'
 import { PrescriptionDownloadButton } from '@/components/clinic/prescription-pdf'
+import { PrescriptionPrintButton } from '@/components/clinic/prescription-print'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -352,6 +353,21 @@ export function PrescriptionModal({ clinicSlug, visit, onSave, onChecked, onClos
   const [isPending, startTransition] = useTransition()
 
   const { suggestions, activeRowId, search, clear } = useDrugSearch(clinicSlug)
+
+  const printRef = useRef<(() => void) | null>(null)
+
+  // Ctrl+P — triggers the same print flow as the Print button when a prescription is saved
+  useEffect(() => {
+    if (!saved) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault()
+        printRef.current?.()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [saved])
 
   useEffect(() => {
     let active = true
@@ -967,23 +983,43 @@ export function PrescriptionModal({ clinicSlug, visit, onSave, onChecked, onClos
             </Button>
           )}
           {saved && (
-            <PrescriptionDownloadButton
-              visit={visit}
-              diagnosis={diagnosis}
-              problemList={problemList}
-              medicines={medicines}
-              notes={notes}
-              allergies={allergies}
-              followUpDate={followUpDate}
-              suggestedTests={selectedTests}
-              doctorName={doctorName}
-              doctorSpecialty={doctorSpecialty}
-              doctorCredentials={doctorCredentials}
-              prescriptionTemplateId={prescriptionTemplateId}
-              clinicPhone={clinicPhone}
-              clinicAddress={clinicAddress}
-              clinicWebsite={clinicWebsite}
-            />
+            <>
+              <PrescriptionPrintButton
+                visit={visit}
+                diagnosis={diagnosis}
+                problemList={problemList}
+                medicines={medicines}
+                notes={notes}
+                allergies={allergies}
+                followUpDate={followUpDate}
+                suggestedTests={selectedTests}
+                doctorName={doctorName}
+                doctorSpecialty={doctorSpecialty}
+                doctorCredentials={doctorCredentials}
+                prescriptionTemplateId={prescriptionTemplateId}
+                clinicPhone={clinicPhone}
+                clinicAddress={clinicAddress}
+                clinicWebsite={clinicWebsite}
+                printRef={printRef}
+              />
+              <PrescriptionDownloadButton
+                visit={visit}
+                diagnosis={diagnosis}
+                problemList={problemList}
+                medicines={medicines}
+                notes={notes}
+                allergies={allergies}
+                followUpDate={followUpDate}
+                suggestedTests={selectedTests}
+                doctorName={doctorName}
+                doctorSpecialty={doctorSpecialty}
+                doctorCredentials={doctorCredentials}
+                prescriptionTemplateId={prescriptionTemplateId}
+                clinicPhone={clinicPhone}
+                clinicAddress={clinicAddress}
+                clinicWebsite={clinicWebsite}
+              />
+            </>
           )}
         </div>
 

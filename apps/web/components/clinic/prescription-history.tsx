@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import type { Visit, Prescription } from "@/lib/types"
 import { getCachedPrescriptions } from "@/lib/cache"
 import { PrescriptionDownloadButton } from "@/components/clinic/prescription-pdf"
+import { PrescriptionPrintButton } from "@/components/clinic/prescription-print"
 import { Button } from "@workspace/ui/components/button"
 import { Badge } from "@workspace/ui/components/badge"
 import {
@@ -115,6 +116,28 @@ function PrescriptionCard({
               <CalendarIcon className="size-3" />
               {date}
             </Badge>
+            <PrescriptionPrintButton
+              visit={visit}
+              diagnosis={prescription.diagnosis}
+              problemList={prescription.problem_list || ""}
+              medicines={downloadMedicines}
+              notes={prescription.notes || ""}
+              allergies={prescription.allergies || ""}
+              followUpDate={prescription.follow_up || ""}
+              suggestedTests={
+                Array.isArray(prescription.suggested_tests)
+                  ? (prescription.suggested_tests as string[])
+                  : undefined
+              }
+              doctorName={doctorName}
+              doctorSpecialty={doctorSpecialty}
+              doctorCredentials={doctorCredentials}
+              prescriptionTemplateId={prescriptionTemplateId}
+              clinicPhone={clinicPhone}
+              clinicAddress={clinicAddress}
+              clinicWebsite={clinicWebsite}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 border rounded-md text-xs font-medium hover:bg-accent transition-colors"
+            />
             <PrescriptionDownloadButton
               visit={visit}
               diagnosis={prescription.diagnosis}
