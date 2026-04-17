@@ -1,6 +1,4 @@
-import { unstable_cache } from 'next/cache'
 import { tenantSql } from '@/lib/db/tenant'
-import { CACHE_TAGS } from '@/lib/cache-tags'
 
 export type DashboardStats = {
   todayAppointments: number
@@ -129,10 +127,5 @@ async function _fetchDashboardStats(clinicSlug: string, doctorIds: string[]): Pr
 }
 
 export function fetchDashboardStats(clinicSlug: string, doctorIds: string[]): Promise<DashboardStats> {
-  const key = `dashboard-stats-${clinicSlug}-${doctorIds.sort().join(',')}`
-  return unstable_cache(
-    () => _fetchDashboardStats(clinicSlug, doctorIds),
-    [key],
-    { tags: [CACHE_TAGS.dashboard(clinicSlug)], revalidate: 300 }
-  )()
+  return _fetchDashboardStats(clinicSlug, doctorIds)
 }

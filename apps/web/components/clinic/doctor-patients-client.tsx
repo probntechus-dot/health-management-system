@@ -1,18 +1,11 @@
 "use client"
 
 import { PatientQueue } from "@/components/clinic/patient-queue"
-import type { Visit } from "@/lib/types"
 
-export function DoctorPatientsClient({
-  clinicSlug,
-  initialVisits,
-}: {
-  clinicSlug: string
-  initialVisits?: Visit[]
-}) {
+export function DoctorPatientsClient({ clinicSlug }: { clinicSlug: string }) {
   return (
     <div className="max-w-5xl">
-      <PatientQueue clinicSlug={clinicSlug} userRole="doctor" initialVisits={initialVisits} />
+      <PatientQueue clinicSlug={clinicSlug} userRole="doctor" />
     </div>
   )
 }

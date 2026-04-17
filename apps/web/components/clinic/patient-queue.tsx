@@ -95,8 +95,6 @@ interface PatientQueueProps {
   prescriptionVisitIds?: Set<string>
   /** Cache scope key — ensures doctor A's cached visits don't leak to doctor B */
   cacheScopeKey?: string
-  /** Server-prefetched visits — skips the client-side fetch on initial mount */
-  initialVisits?: Visit[]
 }
 
 function groupVisitsByDate(
@@ -195,22 +193,13 @@ export function PatientQueue({
   refreshKey,
   prescriptionVisitIds,
   cacheScopeKey,
-  initialVisits,
 }: PatientQueueProps) {
   const scopeKey = cacheScopeKey ?? clinicSlug
 
-  // Seed the module-level cache with server-prefetched data on first render.
-  // This runs synchronously before any useState/useEffect so the cache is
-  // warm before the intersection observer fires and before the SSE effect runs.
-  if (initialVisits && visitsCache.get(scopeKey) === null) {
-    visitsCache.set(scopeKey, initialVisits)
-  }
-
-  const cached = visitsCache.get(scopeKey)
-  const [patients, setPatients] = useState<Visit[]>(cached ?? [])
+  const [patients, setPatients] = useState<Visit[]>([])
   const [filterStatus, setFilterStatus] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
-  const [loading, setLoading] = useState(cached === null)
+  const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [loadMoreError, setLoadMoreError] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -245,13 +234,9 @@ export function PatientQueue({
   useEffect(() => {
     offsetRef.current = 0
     setHasMore(true)
-    const inCache = visitsCache.get(scopeKey)
-    if (inCache !== null && !refreshKey) {
-      // Cache is populated — either from server-prefetch (initialVisits) or
-      // a previous navigation. Skip the fetch and set the pagination cursor.
-      offsetRef.current = inCache.length
-      return
-    }
+    setLoading(true)
+    setPatients([])
+    visitsCache.invalidate()
     loadVisits()
   }, [refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
