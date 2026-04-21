@@ -2,7 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const encoder = new TextEncoder()
 
-async function verifySessionCookie(raw: string): Promise<{ role: string } | null> {
+interface SessionPayload {
+  role: string
+  userId: string
+  email: string
+  fullName: string
+  clinicId: string
+  clinicSlug: string
+  specialization?: string
+  sessionVersion?: number
+}
+
+async function verifySessionCookie(raw: string): Promise<SessionPayload | null> {
   const dotIdx = raw.lastIndexOf('.')
   if (dotIdx === -1) return null
   const payload = raw.slice(0, dotIdx)
