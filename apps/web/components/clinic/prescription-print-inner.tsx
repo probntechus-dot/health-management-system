@@ -3,6 +3,7 @@
 import { pdf, Font } from "@react-pdf/renderer"
 import type { Visit } from "@/lib/types"
 import { getTemplateById, DEFAULT_TEMPLATE_ID } from "./prescription-templates"
+import type { PrescriptionTemplateProps } from "./prescription-templates"
 import { PrintButton } from "@/components/print/print-button"
 import type { PrintButtonProps } from "@/components/print/print-button"
 
@@ -40,7 +41,7 @@ export default function PrescriptionPrintInner({
 }: Props) {
   function getBlob() {
     const { Component } = getTemplateById(prescriptionTemplateId ?? DEFAULT_TEMPLATE_ID)
-    return pdf(<Component {...(data as never)} urduFontFamily="NotoNaskhArabic" />).toBlob()
+    return pdf(<Component {...(data as PrescriptionTemplateProps)} urduFontFamily="NotoNaskhArabic" />).toBlob()
   }
 
   return <PrintButton getPdfBlob={getBlob} printRef={printRef} className={className} />
