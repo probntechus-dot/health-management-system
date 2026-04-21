@@ -40,7 +40,8 @@ interface PatientFormProps {
 }
 
 export function PatientForm({ clinicSlug, onSuccess, prefill, allocatedDoctors }: PatientFormProps) {
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const [contact, setContact] = useState(prefill?.contact ?? "")
@@ -65,9 +66,8 @@ export function PatientForm({ clinicSlug, onSuccess, prefill, allocatedDoctors }
     setContact(m.contact_number)
   }
 
-  // Ref guard prevents double-submission. isPending (React state) needs
-  // a re-render to disable the button in the DOM — a rapid second click
-  // can slip through before that render. Refs update synchronously.
+  // Ref guard prevents double-submission — a rapid second click can slip
+  // through before React re-renders with the disabled button.
   const submittingRef = useRef(false)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -79,27 +79,24 @@ export function PatientForm({ clinicSlug, onSuccess, prefill, allocatedDoctors }
     formData.set("gender", gender)
     if (doctorId) formData.set("doctorId", doctorId)
 
-    // Clear stale messages immediately (outside transition) so they
-    // disappear before the server responds, not after.
     setError("")
     setSuccess(false)
+    setSubmitting(true)
 
     startTransition(async () => {
-      try {
-        const result = await createVisit(formData)
-        if (result?.error) {
-          setError(result.error)
-        } else {
-          formRef.current?.reset()
-          setContact("")
-          setGender("")
-          setSuccess(true)
-          setTimeout(() => setSuccess(false), 3000)
-          onSuccess?.()
-        }
-      } finally {
-        submittingRef.current = false
+      const result = await createVisit(formData)
+      submittingRef.current = false
+      setSubmitting(false)
+      if (result?.error) {
+        setError(result.error)
+        return
       }
+      formRef.current?.reset()
+      setContact("")
+      setGender("")
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
+      onSuccess?.()
     })
   }
 
@@ -226,9 +223,9 @@ export function PatientForm({ clinicSlug, onSuccess, prefill, allocatedDoctors }
           )}
 
           <div className="flex gap-3 pt-1">
-            <Button type="submit" disabled={isPending} className="flex-1">
-              {isPending && <Loader2Icon className="animate-spin" />}
-              {isPending ? "Registering..." : "Register Patient"}
+            <Button type="submit" disabled={submitting} className="flex-1">
+              {submitting && <Loader2Icon className="animate-spin" />}
+              {submitting ? "Registering..." : "Register Patient"}
             </Button>
             <Button type="button" variant="outline" onClick={clearForm}>
               Clear
