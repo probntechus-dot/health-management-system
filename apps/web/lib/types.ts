@@ -1,3 +1,9 @@
+// ── Server action result convention ─────────────────────────────────────────
+// All mutation actions return ActionResult<T>. Read actions return T directly
+// but catch DB errors internally (log + return safe fallback).
+
+export type ActionResult<T> = { data: T } | { error: string }
+
 // ── Patient (one row per unique person) ─────────────────────────────────────
 
 export type Patient = {

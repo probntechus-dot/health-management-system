@@ -25,6 +25,9 @@ import {
   ServerIcon,
 } from "lucide-react"
 import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import { Skeleton } from "@workspace/ui/components/skeleton"
+import { logger } from "@/lib/logger"
 
 function fmtBytes(bytes: number): string {
   if (bytes === 0) return "0 B"
@@ -52,20 +55,55 @@ export function OverviewDashboard() {
   const [counts, setCounts] = useState<OverviewCounts | null>(null)
   const [stats, setStats] = useState<SystemStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+
+  const load = () => {
+    setLoading(true)
+    setLoadError(false)
+    Promise.all([getOverviewCounts(), getSystemStats()])
+      .then(([c, s]) => {
+        setCounts(c)
+        setStats(s)
+        setLoading(false)
+      })
+      .catch((err) => {
+        logger.error('Failed to load overview dashboard', err)
+        setLoadError(true)
+        setLoading(false)
+      })
+  }
 
   useEffect(() => {
-    Promise.all([getOverviewCounts(), getSystemStats()]).then(([c, s]) => {
-      setCounts(c)
-      setStats(s)
-      setLoading(false)
-    })
+    load()
   }, [])
 
   if (loading) {
     return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i}><CardContent className="py-4"><Skeleton className="h-4 w-20 mb-2" /><Skeleton className="h-8 w-12" /></CardContent></Card>
+          ))}
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}><CardContent className="py-6 space-y-3"><Skeleton className="h-4 w-16" /><Skeleton className="h-8 w-20" /><Skeleton className="h-2 w-full rounded-full" /></CardContent></Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
       <Card>
-        <CardContent className="py-8 text-center text-muted-foreground">
-          Loading...
+        <CardContent className="py-10 text-center space-y-3">
+          <AlertTriangleIcon className="mx-auto size-10 text-destructive" />
+          <p className="text-sm font-medium">Dashboard data failed to load</p>
+          <p className="text-xs text-muted-foreground">
+            Could not retrieve system stats. Please try again.
+          </p>
+          <Button variant="outline" size="sm" onClick={load}>Retry</Button>
         </CardContent>
       </Card>
     )

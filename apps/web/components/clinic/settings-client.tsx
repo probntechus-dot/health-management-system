@@ -18,10 +18,17 @@ import {
 } from "@workspace/ui/components/card"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/dialog"
+import {
   Loader2Icon,
   CheckCircleIcon,
   AlertCircleIcon,
   FileTextIcon,
+  EyeIcon,
 } from "lucide-react"
 import { TemplatePreview } from "@/components/clinic/prescription-template-preview"
 import { BuyButton, PremiumBadge } from "@/components/buy/buy-button"
@@ -132,6 +139,7 @@ export function SettingsClient({
     })
   }
 
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false)
   const previewTemplateName = TEMPLATE_OPTIONS.find(t => t.id === previewId)?.name
 
   return (
@@ -214,6 +222,23 @@ export function SettingsClient({
                   )
                 })}
               </div>
+              <div className="xl:hidden flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => setShowPreviewDialog(true)}
+                >
+                  <EyeIcon className="size-3.5" />
+                  Preview {previewTemplateName}
+                </Button>
+                {!isPremiumTemplate(previewId) && previewId !== selectedTemplate && (
+                  <Button size="sm" disabled={templatePending} onClick={() => handleSelectTemplate(previewId)}>
+                    {templatePending && <Loader2Icon className="animate-spin" />}
+                    {templatePending ? "Saving..." : "Select Template"}
+                  </Button>
+                )}
+              </div>
               {templateError && <Alert variant="destructive"><AlertCircleIcon className="size-4" /><AlertDescription>{templateError}</AlertDescription></Alert>}
               {templateSaved && <Alert><CheckCircleIcon className="size-4" /><AlertDescription>Template updated</AlertDescription></Alert>}
             </CardContent>
@@ -278,6 +303,33 @@ export function SettingsClient({
             </Card>
           </div>
         </div>
+      )}
+      {role === "doctor" && (
+        <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{previewTemplateName} Preview</DialogTitle>
+            </DialogHeader>
+            <div className="max-w-[620px] mx-auto shadow-md">
+              <TemplatePreview templateId={previewId} doctorName={fullName} specialization={specialization} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              {isPremiumTemplate(previewId) ? (
+                <BuyButton size="sm" itemId={previewId} itemName={previewTemplateName ?? previewId} />
+              ) : previewId !== selectedTemplate ? (
+                <Button size="sm" disabled={templatePending} onClick={() => { handleSelectTemplate(previewId); setShowPreviewDialog(false) }}>
+                  {templatePending && <Loader2Icon className="animate-spin" />}
+                  {templatePending ? "Saving..." : "Select Template"}
+                </Button>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-sm text-primary font-medium">
+                  <CheckCircleIcon className="size-4" />
+                  Selected
+                </span>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

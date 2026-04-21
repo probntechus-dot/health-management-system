@@ -5,6 +5,7 @@ import { exec } from "child_process"
 import { promisify } from "util"
 import { unstable_cache } from "next/cache"
 import { adminPool } from "@/lib/db/index"
+import { logger } from "@/lib/logger"
 import { requireAdmin } from "./auth"
 
 const execAsync = promisify(exec)
@@ -75,7 +76,18 @@ const _fetchSystemStats = unstable_cache(
 
 export async function getSystemStats(): Promise<SystemStats> {
   await requireAdmin()
-  return _fetchSystemStats()
+  try {
+    return await _fetchSystemStats()
+  } catch (error) {
+    logger.error('Failed to fetch system stats', error)
+    return {
+      memory: { total: 0, used: 0 },
+      cpu: { loadAvg1m: 0, cores: 0 },
+      disk: { total: 0, used: 0 },
+      db: { connections: 0, sizeBytes: 0 },
+      uptime: 0,
+    }
+  }
 }
 
 // ── Overview counts (cached 30s) ─────────────────────────────────────────────
@@ -100,5 +112,10 @@ const _fetchOverviewCounts = unstable_cache(
 
 export async function getOverviewCounts(): Promise<OverviewCounts> {
   await requireAdmin()
-  return _fetchOverviewCounts()
+  try {
+    return await _fetchOverviewCounts()
+  } catch (error) {
+    logger.error('Failed to fetch overview counts', error)
+    return { total: 0, active: 0, trial: 0, suspended: 0, paused: 0 }
+  }
 }

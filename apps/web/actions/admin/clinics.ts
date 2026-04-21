@@ -8,6 +8,7 @@ import { deleteClinicEmitter } from "@/lib/events"
 import { getErrorMessage } from "@/lib/errors"
 import { CACHE_TAGS } from "@/lib/cache-tags"
 import { encryptDisplayPassword, decryptDisplayPassword } from "@/lib/crypto"
+import { logger } from "@/lib/logger"
 import { requireAdmin } from "./auth"
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -56,43 +57,46 @@ export type ClinicUserRow = {
 // ── DB migration (run manually via admin panel button) ───────────────────────
 // After running, move executed statements to platform-schema.sql and remove from here.
 
-export async function runClinicsMigration() {
+export async function runClinicsMigration(): Promise<{ success: true } | { error: string }> {
   await requireAdmin()
 
-  // ── notifications table ────────────────────────────────────────────────────
-  await adminPool`
-    CREATE TABLE IF NOT EXISTS notifications (
-      id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-      clinic_id  UUID        NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
-      title      TEXT        NOT NULL,
-      message    TEXT        NOT NULL,
-      type       TEXT        NOT NULL DEFAULT 'info' CHECK (type IN ('info', 'warning', 'urgent')),
-      is_read    BOOLEAN     NOT NULL DEFAULT false,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `
-  await adminPool`CREATE INDEX IF NOT EXISTS idx_notifications_clinic_id ON notifications(clinic_id)`
-  await adminPool`CREATE INDEX IF NOT EXISTS idx_notifications_created   ON notifications(created_at DESC)`
-  await adminPool.unsafe(`GRANT SELECT, UPDATE ON notifications TO clinic_app`)
+  try {
+    await adminPool`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+        clinic_id  UUID        NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+        title      TEXT        NOT NULL,
+        message    TEXT        NOT NULL,
+        type       TEXT        NOT NULL DEFAULT 'info' CHECK (type IN ('info', 'warning', 'urgent')),
+        is_read    BOOLEAN     NOT NULL DEFAULT false,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `
+    await adminPool`CREATE INDEX IF NOT EXISTS idx_notifications_clinic_id ON notifications(clinic_id)`
+    await adminPool`CREATE INDEX IF NOT EXISTS idx_notifications_created   ON notifications(created_at DESC)`
+    await adminPool.unsafe(`GRANT SELECT, UPDATE ON notifications TO clinic_app`)
 
-  // ── columns added after initial schema ─────────────────────────────────────
-  await adminPool`
-    ALTER TABLE clinics
-      ADD COLUMN IF NOT EXISTS plan             TEXT        NOT NULL DEFAULT 'active',
-      ADD COLUMN IF NOT EXISTS trial_expires_at TIMESTAMPTZ,
-      ADD COLUMN IF NOT EXISTS payment_notes    TEXT
-  `
-  await adminPool`
-    ALTER TABLE clinic_users
-      ADD COLUMN IF NOT EXISTS specialization            TEXT,
-      ADD COLUMN IF NOT EXISTS session_version           INTEGER NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS display_password          TEXT,
-      ADD COLUMN IF NOT EXISTS prescription_template_id  TEXT DEFAULT 'classic'
-  `
-  await adminPool.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON clinic_users TO clinic_app`)
-  await adminPool.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON receptionist_doctors TO clinic_app`)
+    await adminPool`
+      ALTER TABLE clinics
+        ADD COLUMN IF NOT EXISTS plan             TEXT        NOT NULL DEFAULT 'active',
+        ADD COLUMN IF NOT EXISTS trial_expires_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS payment_notes    TEXT
+    `
+    await adminPool`
+      ALTER TABLE clinic_users
+        ADD COLUMN IF NOT EXISTS specialization            TEXT,
+        ADD COLUMN IF NOT EXISTS session_version           INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS display_password          TEXT,
+        ADD COLUMN IF NOT EXISTS prescription_template_id  TEXT DEFAULT 'classic'
+    `
+    await adminPool.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON clinic_users TO clinic_app`)
+    await adminPool.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON receptionist_doctors TO clinic_app`)
 
-  return { success: true }
+    return { success: true }
+  } catch (error) {
+    logger.error('Migration failed', error)
+    return { error: getErrorMessage(error, 'Migration failed') }
+  }
 }
 
 // ── Invalidate all sessions for a clinic ─────────────────────────────────────
@@ -100,10 +104,14 @@ export async function runClinicsMigration() {
 export async function invalidateClinicSessions(
   clinicId: string
 ): Promise<void> {
-  await adminPool`
-    UPDATE clinic_users SET session_version = session_version + 1
-    WHERE clinic_id = ${clinicId}
-  `
+  try {
+    await adminPool`
+      UPDATE clinic_users SET session_version = session_version + 1
+      WHERE clinic_id = ${clinicId}
+    `
+  } catch (error) {
+    logger.error('Failed to invalidate clinic sessions', error)
+  }
 }
 
 // ── Notifications ────────────────────────────────────────────────────────────
@@ -162,31 +170,36 @@ export async function forceLogoutClinic(
 
 export async function listClinics(): Promise<ClinicRow[]> {
   await requireAdmin()
-  const rows = await adminPool<ClinicRow[]>`
-    SELECT
-      c.id,
-      c.slug,
-      c.name,
-      c.phone,
-      c.address,
-      c.website,
-      c.max_doctors,
-      c.max_receptionists,
-      c.status,
-      COALESCE(c.plan, 'active')  AS plan,
-      c.trial_expires_at::TEXT    AS trial_expires_at,
-      c.payment_notes,
-      c.created_at::TEXT          AS created_at,
-      COUNT(cu.id)::INT                                                                    AS user_count,
-      COUNT(cu.id) FILTER (WHERE cu.role = 'doctor' AND cu.is_active = true)::INT          AS doctor_count,
-      COUNT(cu.id) FILTER (WHERE cu.role = 'receptionist' AND cu.is_active = true)::INT    AS receptionist_count
-    FROM clinics c
-    LEFT JOIN clinic_users cu ON cu.clinic_id = c.id
-    WHERE c.status != 'deleted'
-    GROUP BY c.id
-    ORDER BY c.created_at DESC
-  `
-  return rows
+  try {
+    const rows = await adminPool<ClinicRow[]>`
+      SELECT
+        c.id,
+        c.slug,
+        c.name,
+        c.phone,
+        c.address,
+        c.website,
+        c.max_doctors,
+        c.max_receptionists,
+        c.status,
+        COALESCE(c.plan, 'active')  AS plan,
+        c.trial_expires_at::TEXT    AS trial_expires_at,
+        c.payment_notes,
+        c.created_at::TEXT          AS created_at,
+        COUNT(cu.id)::INT                                                                    AS user_count,
+        COUNT(cu.id) FILTER (WHERE cu.role = 'doctor' AND cu.is_active = true)::INT          AS doctor_count,
+        COUNT(cu.id) FILTER (WHERE cu.role = 'receptionist' AND cu.is_active = true)::INT    AS receptionist_count
+      FROM clinics c
+      LEFT JOIN clinic_users cu ON cu.clinic_id = c.id
+      WHERE c.status != 'deleted'
+      GROUP BY c.id
+      ORDER BY c.created_at DESC
+    `
+    return rows
+  } catch (error) {
+    logger.error('Failed to list clinics', error)
+    return []
+  }
 }
 
 export async function addClinic(input: AddClinicInput) {
@@ -380,18 +393,23 @@ export async function listClinicUsers(
   clinicId: string
 ): Promise<ClinicUserRow[]> {
   await requireAdmin()
-  const rows = await adminPool<ClinicUserRow[]>`
-    SELECT id, full_name, email, role, specialization, credentials, is_active, display_password
-    FROM clinic_users
-    WHERE clinic_id = ${clinicId}
-    ORDER BY
-      CASE role WHEN 'clinic_admin' THEN 0 WHEN 'doctor' THEN 1 WHEN 'receptionist' THEN 2 END,
-      full_name
-  `
-  return rows.map(r => ({
-    ...r,
-    display_password: r.display_password ? decryptDisplayPassword(r.display_password) : null,
-  }))
+  try {
+    const rows = await adminPool<ClinicUserRow[]>`
+      SELECT id, full_name, email, role, specialization, credentials, is_active, display_password
+      FROM clinic_users
+      WHERE clinic_id = ${clinicId}
+      ORDER BY
+        CASE role WHEN 'clinic_admin' THEN 0 WHEN 'doctor' THEN 1 WHEN 'receptionist' THEN 2 END,
+        full_name
+    `
+    return rows.map(r => ({
+      ...r,
+      display_password: r.display_password ? decryptDisplayPassword(r.display_password) : null,
+    }))
+  } catch (error) {
+    logger.error('Failed to list clinic users', error)
+    return []
+  }
 }
 
 export async function updateClinicUser(

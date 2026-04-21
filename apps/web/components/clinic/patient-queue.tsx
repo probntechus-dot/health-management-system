@@ -206,6 +206,7 @@ export function PatientQueue({
   const [showAddModal, setShowAddModal] = useState(false)
   const [modalPrefill, setModalPrefill] = useState<Prefill | undefined>()
   const [formError, setFormError] = useState("")
+  const [sseDisconnected, setSseDisconnected] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [modalContact, setModalContact] = useState("")
   const [updatingAction, setUpdatingAction] = useState<{
@@ -269,6 +270,7 @@ export function PatientQueue({
 
     es.onmessage = (event) => {
       if (!isMounted) return
+      setSseDisconnected(false)
       try {
         const payload = JSON.parse(event.data) as {
           type: string
@@ -298,7 +300,8 @@ export function PatientQueue({
     }
 
     es.onerror = () => {
-      // EventSource auto-reconnects
+      if (isMounted) setSseDisconnected(true)
+      logger.warn("SSE connection lost, auto-reconnecting")
     }
 
     return () => {
@@ -511,6 +514,12 @@ export function PatientQueue({
 
   return (
     <div className="flex flex-col gap-4">
+      {sseDisconnected && (
+        <div className="flex items-center gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-200">
+          <AlertCircleIcon className="size-4 shrink-0" />
+          <span>Real-time updates paused &mdash; reconnecting&hellip;</span>
+        </div>
+      )}
       {actionError && (
         <Alert variant="destructive">
           <AlertCircleIcon className="size-4" />

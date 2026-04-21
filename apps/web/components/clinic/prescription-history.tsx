@@ -20,7 +20,9 @@ import {
   CalendarIcon,
   DownloadIcon,
   FileTextIcon,
+  AlertTriangleIcon,
 } from "lucide-react"
+import { logger } from "@/lib/logger"
 
 interface PrescriptionHistoryProps {
   clinicSlug: string
@@ -269,22 +271,31 @@ export function PrescriptionHistory({
 }: PrescriptionHistoryProps) {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
-  useEffect(() => {
+  const loadPrescriptions = (patientId: string, slug: string) => {
+    setLoading(true)
+    setError(false)
     let active = true
-    getCachedPrescriptions(clinicSlug, visit.patient_id)
+    getCachedPrescriptions(slug, patientId)
       .then((data) => {
         if (active) {
           setPrescriptions(data)
           setLoading(false)
         }
       })
-      .catch(() => {
-        if (active) setLoading(false)
+      .catch((err) => {
+        if (active) {
+          logger.error('Failed to load prescription history', err)
+          setError(true)
+          setLoading(false)
+        }
       })
-    return () => {
-      active = false
-    }
+    return () => { active = false }
+  }
+
+  useEffect(() => {
+    return loadPrescriptions(visit.patient_id, clinicSlug)
   }, [visit.patient_id, clinicSlug])
 
   return (
@@ -308,7 +319,9 @@ export function PrescriptionHistory({
                 <span>
                   {loading
                     ? "Loading…"
-                    : `${prescriptions.length} prescription${prescriptions.length !== 1 ? "s" : ""}`}
+                    : error
+                      ? "Error loading"
+                      : `${prescriptions.length} prescription${prescriptions.length !== 1 ? "s" : ""}`}
                 </span>
               </div>
               <Button variant="ghost" size="icon-sm" onClick={onClose}>
@@ -328,6 +341,28 @@ export function PrescriptionHistory({
             <Skeleton className="h-4 w-2/3" />
           </CardContent>
         </Card>
+      ) : error ? (
+        <Card className="border-destructive/40">
+          <CardContent className="py-10">
+            <div className="text-center space-y-3">
+              <div className="mx-auto size-14 rounded-xl bg-destructive/10 flex items-center justify-center">
+                <AlertTriangleIcon className="size-6 text-destructive" />
+              </div>
+              <p className="text-sm font-medium">Failed to load prescription history</p>
+              <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                This patient&apos;s medication history could not be retrieved.
+                Please retry or contact support before prescribing.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => loadPrescriptions(visit.patient_id, clinicSlug)}
+              >
+                Try again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : prescriptions.length === 0 ? (
         <Card>
           <CardContent className="py-12">
@@ -336,7 +371,7 @@ export function PrescriptionHistory({
                 <FileTextIcon className="size-6 text-muted-foreground" />
               </div>
               <p className="text-sm font-medium text-muted-foreground">
-                No prescriptions yet
+                No prescriptions yet.
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 History will appear here after the first visit.

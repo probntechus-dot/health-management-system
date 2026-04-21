@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useTransition } from "react"
-import { BellIcon, CheckIcon } from "lucide-react"
+import { useState, useEffect, useTransition, useCallback } from "react"
+import { BellIcon, CheckIcon, AlertCircleIcon } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@workspace/ui/components/popover"
 import { ScrollArea } from "@workspace/ui/components/scroll-area"
@@ -12,13 +12,14 @@ import {
   type NotificationRow,
 } from "@/actions/notifications"
 import { getCached, setCacheWithTTL, invalidateCache } from "@/lib/client-cache"
+import { logger } from "@/lib/logger"
 
 // Cache key and TTL for notification data.
 // 60s is long enough to prevent redundant fetches on rapid navigation,
 // but short enough that a new notification sent during a session appears
 // within a minute without a full page reload.
 const NOTIF_CACHE_KEY = "notifications:v1"
-const NOTIF_CACHE_TTL_MS = 60_000
+const NOTIF_CACHE_TTL_MS = 10_000
 
 const TYPE_STYLES: Record<NotificationRow["type"], string> = {
   info: "border-l-blue-400",
@@ -28,29 +29,33 @@ const TYPE_STYLES: Record<NotificationRow["type"], string> = {
 
 export function NotificationBell() {
   const [notifications, setNotifications] = useState<NotificationRow[]>(() => {
-    // Initialise from cache synchronously — avoids a blank bell on mount
     return getCached<NotificationRow[]>(NOTIF_CACHE_KEY) ?? []
   })
   const [isPending, startTransition] = useTransition()
+  const [fetchError, setFetchError] = useState(false)
 
   const unread = notifications.filter((n) => !n.is_read).length
 
-  const load = () => {
-    // Serve from cache if still fresh
+  const load = useCallback(() => {
     const cached = getCached<NotificationRow[]>(NOTIF_CACHE_KEY)
     if (cached) {
       setNotifications(cached)
+      setFetchError(false)
       return
     }
     getNotifications().then((data) => {
       setCacheWithTTL(NOTIF_CACHE_KEY, data, NOTIF_CACHE_TTL_MS)
       setNotifications(data)
-    }).catch(() => {})
-  }
+      setFetchError(false)
+    }).catch((err) => {
+      logger.error('Failed to load notifications', err)
+      setFetchError(true)
+    })
+  }, [])
 
   useEffect(() => {
     load()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [load])
 
 const handleMarkAll = () => {
     startTransition(async () => {
@@ -73,13 +78,23 @@ const handleMarkAll = () => {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" className="relative" aria-label="Notifications">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="relative"
+          aria-label={fetchError ? "Notifications unavailable — tap to retry" : "Notifications"}
+          onClick={fetchError ? (e) => { e.preventDefault(); load() } : undefined}
+        >
           <BellIcon className="size-4" />
-          {unread > 0 && (
+          {fetchError ? (
+            <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
+              !
+            </span>
+          ) : unread > 0 ? (
             <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
               {unread > 9 ? "9+" : unread}
             </span>
-          )}
+          ) : null}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
@@ -100,7 +115,7 @@ const handleMarkAll = () => {
         <ScrollArea className="max-h-[400px]">
           {notifications.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">
-              No notifications
+              No notifications.
             </div>
           ) : (
             <div className="divide-y">

@@ -6,6 +6,7 @@ import { visitsCache } from "@/lib/cache"
 import type { PatientMatch } from "@/lib/cache"
 import { findPatientsByContact } from "@/actions/patients"
 import { Loader2Icon } from "lucide-react"
+import { logger } from "@/lib/logger"
 
 export type { PatientMatch }
 
@@ -28,8 +29,9 @@ export function ContactLookup({
     searching: boolean
     matches: PatientMatch[]
     showMatches: boolean
-  }>({ searching: false, matches: [], showMatches: false })
-  const { searching, matches, showMatches } = searchState
+    searchError: boolean
+  }>({ searching: false, matches: [], showMatches: false, searchError: false })
+  const { searching, matches, showMatches, searchError } = searchState
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const skipRef = useRef(skipInitialSearch ?? false)
@@ -44,18 +46,18 @@ export function ContactLookup({
 
     debounceRef.current = setTimeout(async () => {
       if (contact.length < 3) {
-        setSearchState({ searching: false, matches: [], showMatches: false })
+        setSearchState({ searching: false, matches: [], showMatches: false, searchError: false })
         return
       }
 
       const cached = visitsCache.searchByContact(clinicSlug, contact)
       if (cached.length > 0) {
-        setSearchState({ searching: false, matches: cached, showMatches: true })
+        setSearchState({ searching: false, matches: cached, showMatches: true, searchError: false })
         return
       }
 
       if (contact.length < 4) {
-        setSearchState({ searching: false, matches: [], showMatches: false })
+        setSearchState({ searching: false, matches: [], showMatches: false, searchError: false })
         return
       }
       setSearchState((prev) => ({
@@ -63,13 +65,25 @@ export function ContactLookup({
         searching: true,
         matches: [],
         showMatches: false,
+        searchError: false,
       }))
-      const data = await findPatientsByContact(contact)
-      setSearchState({
-        searching: false,
-        matches: data,
-        showMatches: data.length > 0,
-      })
+      try {
+        const data = await findPatientsByContact(contact)
+        setSearchState({
+          searching: false,
+          matches: data,
+          showMatches: data.length > 0,
+          searchError: false,
+        })
+      } catch (err) {
+        logger.error('Contact lookup failed', err)
+        setSearchState({
+          searching: false,
+          matches: [],
+          showMatches: false,
+          searchError: true,
+        })
+      }
     }, contact.length < 3 ? 0 : 400)
 
     return () => {
@@ -100,7 +114,7 @@ export function ContactLookup({
   }, [])
 
   const handleSelect = (m: PatientMatch) => {
-    setSearchState({ searching: false, matches: [], showMatches: false })
+    setSearchState({ searching: false, matches: [], showMatches: false, searchError: false })
     onSelect(m)
   }
 
@@ -125,6 +139,11 @@ export function ContactLookup({
           </div>
         )}
       </div>
+      {searchError && (
+        <p className="mt-1 text-xs text-destructive">
+          Search failed — please try again
+        </p>
+      )}
       {showMatches && (
         <div className="absolute left-0 right-0 mt-1 rounded-md border bg-popover shadow-md overflow-hidden z-20">
           {matches.map((m, i) => (

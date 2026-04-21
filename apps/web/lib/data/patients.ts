@@ -56,6 +56,8 @@ export async function fetchVisits(clinicSlug: string, doctorIds: string[], offse
       FROM visits v
       JOIN patients p ON p.id = v.patient_id
       WHERE v.doctor_id = ANY(${doctorIds})
+        AND v.created_at >= CURRENT_DATE
+        AND v.created_at < CURRENT_DATE + INTERVAL '1 day'
       ORDER BY v.created_at ASC
       LIMIT ${PAGE_SIZE} OFFSET ${offset}
     `

@@ -27,6 +27,8 @@ export type PatientMatch = {
 // The slug of the clinic whose data is currently cached is recorded so that
 // a session switch in the same tab automatically discards stale data.
 
+const MAX_VISITS_CACHE_SIZE = 500
+
 let visitsData: Visit[] | null = null
 let visitsScopeKey: string | null = null
 
@@ -49,6 +51,9 @@ export const visitsCache = {
     }
     if (!visitsData) { visitsData = visits; return }
     visitsData = [...visitsData, ...visits]
+    if (visitsData.length > MAX_VISITS_CACHE_SIZE) {
+      visitsData = visitsData.slice(visitsData.length - MAX_VISITS_CACHE_SIZE)
+    }
   },
 
   patchStatus(visitId: string, status: Visit['status']) {
@@ -61,6 +66,8 @@ export const visitsCache = {
     visitsScopeKey = null
   },
 
+  // Demographics (age, address) come from the visit snapshot and may be stale
+  // if the patient record was updated after the visit was created.
   searchByContact(scopeKey: string, query: string): PatientMatch[] {
     if (!visitsData || visitsScopeKey !== scopeKey || query.length < 3) return []
     const q = query.toLowerCase()
@@ -129,6 +136,8 @@ export async function searchCachedDrugs(clinicSlug: string, query: string): Prom
 // ── Prescriptions ────────────────────────────────────────────────────────────
 // Keyed by `${clinicSlug}:${patientId}` to prevent cross-clinic collisions
 // and to discard entries from a previous clinic session automatically.
+// Eviction is FIFO (Map insertion order), not LRU. Acceptable for typical
+// clinic workloads where a doctor sees patients sequentially.
 
 const MAX_PRESCRIPTION_CACHE_SIZE = 50
 const prescriptionsMap = new Map<string, Prescription[]>()

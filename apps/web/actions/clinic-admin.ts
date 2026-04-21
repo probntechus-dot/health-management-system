@@ -8,6 +8,7 @@ import { requireRole, invalidateUserSessions } from '@/lib/auth'
 import { getErrorMessage } from '@/lib/errors'
 import { CACHE_TAGS } from '@/lib/cache-tags'
 import { encryptDisplayPassword, decryptDisplayPassword } from '@/lib/crypto'
+import { logger } from '@/lib/logger'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,66 +42,75 @@ async function requireClinicAdmin() {
 export async function getClinicUsers(): Promise<ClinicUserRow[]> {
   const session = await requireClinicAdmin()
 
-  const users = await appPool<{
-    id: string
-    full_name: string
-    email: string
-    role: string
-    specialization: string | null
-    credentials: string | null
-    is_active: boolean
-    display_password: string | null
-  }[]>`
-    SELECT id, full_name, email, role, specialization, credentials, is_active, display_password
-    FROM clinic_users
-    WHERE clinic_id = ${session.clinicId}
-    ORDER BY
-      CASE role WHEN 'clinic_admin' THEN 0 WHEN 'doctor' THEN 1 WHEN 'receptionist' THEN 2 END,
-      full_name
-  `
-
-  // Fetch allocations for receptionists
-  const receptionistIds = users.filter(u => u.role === 'receptionist').map(u => u.id)
-  let allocations: { receptionist_id: string; doctor_id: string }[] = []
-  if (receptionistIds.length > 0) {
-    allocations = await appPool<{ receptionist_id: string; doctor_id: string }[]>`
-      SELECT receptionist_id, doctor_id FROM receptionist_doctors
-      WHERE receptionist_id = ANY(${receptionistIds})
+  try {
+    const users = await appPool<{
+      id: string
+      full_name: string
+      email: string
+      role: string
+      specialization: string | null
+      credentials: string | null
+      is_active: boolean
+      display_password: string | null
+    }[]>`
+      SELECT id, full_name, email, role, specialization, credentials, is_active, display_password
+      FROM clinic_users
+      WHERE clinic_id = ${session.clinicId}
+      ORDER BY
+        CASE role WHEN 'clinic_admin' THEN 0 WHEN 'doctor' THEN 1 WHEN 'receptionist' THEN 2 END,
+        full_name
     `
-  }
 
-  return users.map(u => ({
-    ...u,
-    role: u.role as ClinicUserRow['role'],
-    display_password: u.display_password ? decryptDisplayPassword(u.display_password) : null,
-    allocated_doctor_ids: allocations
-      .filter(a => a.receptionist_id === u.id)
-      .map(a => a.doctor_id),
-  }))
+    const receptionistIds = users.filter(u => u.role === 'receptionist').map(u => u.id)
+    let allocations: { receptionist_id: string; doctor_id: string }[] = []
+    if (receptionistIds.length > 0) {
+      allocations = await appPool<{ receptionist_id: string; doctor_id: string }[]>`
+        SELECT receptionist_id, doctor_id FROM receptionist_doctors
+        WHERE receptionist_id = ANY(${receptionistIds})
+      `
+    }
+
+    return users.map(u => ({
+      ...u,
+      role: u.role as ClinicUserRow['role'],
+      display_password: u.display_password ? decryptDisplayPassword(u.display_password) : null,
+      allocated_doctor_ids: allocations
+        .filter(a => a.receptionist_id === u.id)
+        .map(a => a.doctor_id),
+    }))
+  } catch (error) {
+    logger.error('Failed to fetch clinic users', error)
+    return []
+  }
 }
 
 export async function getClinicLimits(): Promise<ClinicLimits> {
   const session = await requireClinicAdmin()
 
-  const [limits] = await appPool<{ max_doctors: number; max_receptionists: number }[]>`
-    SELECT max_doctors, max_receptionists FROM clinics WHERE id = ${session.clinicId}
-  `
+  try {
+    const [limits] = await appPool<{ max_doctors: number; max_receptionists: number }[]>`
+      SELECT max_doctors, max_receptionists FROM clinics WHERE id = ${session.clinicId}
+    `
 
-  const counts = await appPool<{ role: string; count: string }[]>`
-    SELECT role, COUNT(*)::text AS count
-    FROM clinic_users
-    WHERE clinic_id = ${session.clinicId} AND is_active = true AND role IN ('doctor', 'receptionist')
-    GROUP BY role
-  `
+    const counts = await appPool<{ role: string; count: string }[]>`
+      SELECT role, COUNT(*)::text AS count
+      FROM clinic_users
+      WHERE clinic_id = ${session.clinicId} AND is_active = true AND role IN ('doctor', 'receptionist')
+      GROUP BY role
+    `
 
-  const countMap: Record<string, number> = {}
-  for (const r of counts) countMap[r.role] = parseInt(r.count)
+    const countMap: Record<string, number> = {}
+    for (const r of counts) countMap[r.role] = parseInt(r.count)
 
-  return {
-    max_doctors: limits?.max_doctors ?? 5,
-    max_receptionists: limits?.max_receptionists ?? 5,
-    doctor_count: countMap['doctor'] ?? 0,
-    receptionist_count: countMap['receptionist'] ?? 0,
+    return {
+      max_doctors: limits?.max_doctors ?? 5,
+      max_receptionists: limits?.max_receptionists ?? 5,
+      doctor_count: countMap['doctor'] ?? 0,
+      receptionist_count: countMap['receptionist'] ?? 0,
+    }
+  } catch (error) {
+    logger.error('Failed to fetch clinic limits', error)
+    return { max_doctors: 5, max_receptionists: 5, doctor_count: 0, receptionist_count: 0 }
   }
 }
 

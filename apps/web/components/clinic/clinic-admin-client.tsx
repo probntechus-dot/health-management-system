@@ -10,7 +10,7 @@ import {
   setReceptionistDoctors,
 } from "@/actions/clinic-admin"
 import type { ClinicUserRow, ClinicLimits } from "@/actions/clinic-admin"
-import { getCached, setCache, invalidateCachePrefix } from "@/lib/client-cache"
+import { getCached, setCacheWithTTL, invalidateCachePrefix } from "@/lib/client-cache"
 import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
@@ -54,12 +54,6 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@workspace/ui/components/input-group"
 import { Badge } from "@workspace/ui/components/badge"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import { Skeleton } from "@workspace/ui/components/skeleton"
@@ -68,71 +62,15 @@ import {
   PencilIcon,
   UsersIcon,
   Loader2Icon,
-  ShieldCheckIcon,
-  StethoscopeIcon,
-  UserIcon,
   CheckIcon,
-  EyeIcon,
-  EyeOffIcon,
   SearchIcon,
+  AlertCircleIcon,
+  StethoscopeIcon,
 } from "lucide-react"
-
-// ── Password Input (InputGroup-based) ─────────────────────────────────────────
-
-function PasswordInput(props: Omit<React.ComponentProps<"input">, "type">) {
-  const [visible, setVisible] = useState(false)
-  return (
-    <InputGroup>
-      <InputGroupInput {...props} type={visible ? "text" : "password"} />
-      <InputGroupAddon align="inline-end">
-        <InputGroupButton
-          size="icon-sm"
-          onClick={() => setVisible((v) => !v)}
-          aria-label={visible ? "Hide password" : "Show password"}
-        >
-          {visible ? <EyeOffIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
-        </InputGroupButton>
-      </InputGroupAddon>
-    </InputGroup>
-  )
-}
-
-// ── Password Cell (table display) ─────────────────────────────────────────────
-
-function PasswordCell({ password }: { password: string | null }) {
-  const [visible, setVisible] = useState(false)
-  if (!password) return <span className="text-muted-foreground text-xs">—</span>
-  return (
-    <div className="flex items-center gap-1">
-      <span className="font-mono text-xs">
-        {visible ? password : "••••••••"}
-      </span>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        onClick={() => setVisible((v) => !v)}
-        aria-label={visible ? "Hide password" : "Show password"}
-      >
-        {visible ? <EyeOffIcon className="size-3" /> : <EyeIcon className="size-3" />}
-      </Button>
-    </div>
-  )
-}
-
-// ── Role Badge ────────────────────────────────────────────────────────────────
-
-function RoleBadge({ role }: { role: string }) {
-  switch (role) {
-    case "clinic_admin":
-      return <Badge variant="default" className="gap-1"><ShieldCheckIcon className="size-3" />Admin</Badge>
-    case "doctor":
-      return <Badge variant="secondary" className="gap-1"><StethoscopeIcon className="size-3" />Doctor</Badge>
-    case "receptionist":
-      return <Badge variant="outline" className="gap-1"><UserIcon className="size-3" />Receptionist</Badge>
-    default:
-      return <Badge variant="outline">{role}</Badge>
-  }
-}
+import { logger } from "@/lib/logger"
+import { PasswordInput } from "@/components/shared/password-input"
+import { PasswordCell } from "@/components/shared/password-cell"
+import { RoleBadge } from "@/components/shared/role-badge"
 
 // ── Add User Dialog ──────────────────────────────────────────────────────────
 
@@ -454,6 +392,7 @@ export function ClinicAdminClient() {
   const [users, setUsers] = useState<ClinicUserRow[]>([])
   const [limits, setLimits] = useState<ClinicLimits | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [editUser, setEditUser] = useState<ClinicUserRow | null>(null)
   const [allocateUser, setAllocateUser] = useState<ClinicUserRow | null>(null)
@@ -469,15 +408,23 @@ export function ClinicAdminClient() {
         setUsers(cachedUsers)
         setLimits(cachedLimits)
         setLoading(false)
+        setLoadError(false)
         return
       }
     }
-    const [u, l] = await Promise.all([getClinicUsers(), getClinicLimits()])
-    setCache("clinic-admin:users", u)
-    setCache("clinic-admin:limits", l)
-    setUsers(u)
-    setLimits(l)
-    setLoading(false)
+    try {
+      const [u, l] = await Promise.all([getClinicUsers(), getClinicLimits()])
+      setCacheWithTTL("clinic-admin:users", u, 60_000)
+      setCacheWithTTL("clinic-admin:limits", l, 60_000)
+      setUsers(u)
+      setLimits(l)
+      setLoadError(false)
+    } catch (err) {
+      logger.error('Failed to load clinic admin data', err)
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const reloadData = () => {
@@ -530,6 +477,23 @@ export function ClinicAdminClient() {
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-64 rounded-xl" />
       </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <Card className="max-w-md">
+        <CardContent className="py-10 text-center space-y-3">
+          <AlertCircleIcon className="mx-auto size-10 text-destructive" />
+          <p className="text-sm font-medium">Failed to load admin data</p>
+          <p className="text-xs text-muted-foreground">
+            Could not retrieve users or clinic limits. Please try again.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => loadData(true)}>
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
     )
   }
 

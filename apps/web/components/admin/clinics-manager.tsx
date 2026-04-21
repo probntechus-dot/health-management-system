@@ -47,12 +47,8 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import { Textarea } from "@workspace/ui/components/textarea"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@workspace/ui/components/input-group"
+import { Skeleton } from "@workspace/ui/components/skeleton"
+import { PasswordInput } from "@/components/shared/password-input"
 import {
   listClinics,
   addClinic,
@@ -82,9 +78,6 @@ import {
   SearchIcon,
   EyeIcon,
   EyeOffIcon,
-  ShieldCheckIcon,
-  StethoscopeIcon,
-  UserIcon,
   CheckIcon,
   ClockIcon,
   UserPlusIcon,
@@ -92,64 +85,11 @@ import {
   LogOutIcon,
   DatabaseIcon,
   SendIcon,
+  AlertCircleIcon,
 } from "lucide-react"
-
-// ── Password Input (InputGroup-based) ─────────────────────────────────────────
-
-function PasswordInput({ value, onChange, ...props }: React.ComponentProps<"input"> & { value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
-  const [visible, setVisible] = useState(false)
-  return (
-    <InputGroup>
-      <InputGroupInput {...props} value={value} onChange={onChange} type={visible ? "text" : "password"} />
-      <InputGroupAddon align="inline-end">
-        <InputGroupButton
-          size="icon-sm"
-          onClick={() => setVisible((v) => !v)}
-          aria-label={visible ? "Hide password" : "Show password"}
-        >
-          {visible ? <EyeOffIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
-        </InputGroupButton>
-      </InputGroupAddon>
-    </InputGroup>
-  )
-}
-
-// ── Password Cell (table display) ─────────────────────────────────────────────
-
-function PasswordCell({ password }: { password: string | null }) {
-  const [visible, setVisible] = useState(false)
-  if (!password) return <span className="text-muted-foreground text-xs">—</span>
-  return (
-    <div className="flex items-center gap-1">
-      <span className="font-mono text-xs">
-        {visible ? password : "••••••••"}
-      </span>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        onClick={() => setVisible((v) => !v)}
-        aria-label={visible ? "Hide password" : "Show password"}
-      >
-        {visible ? <EyeOffIcon className="size-3" /> : <EyeIcon className="size-3" />}
-      </Button>
-    </div>
-  )
-}
-
-// ── Role Badge ────────────────────────────────────────────────────────────────
-
-function RoleBadge({ role }: { role: string }) {
-  switch (role) {
-    case "clinic_admin":
-      return <Badge variant="default" className="gap-1"><ShieldCheckIcon className="size-3" />Admin</Badge>
-    case "doctor":
-      return <Badge variant="secondary" className="gap-1"><StethoscopeIcon className="size-3" />Doctor</Badge>
-    case "receptionist":
-      return <Badge variant="outline" className="gap-1"><UserIcon className="size-3" />Receptionist</Badge>
-    default:
-      return <Badge variant="outline">{role}</Badge>
-  }
-}
+import { logger } from "@/lib/logger"
+import { PasswordCell } from "@/components/shared/password-cell"
+import { RoleBadge } from "@/components/shared/role-badge"
 
 // ── Trial Days Badge ──────────────────────────────────────────────────────────
 
@@ -189,6 +129,7 @@ function CapacityBadge({ count, max, label }: { count: number; max: number; labe
 export function ClinicsManager() {
   const [clinics, setClinics] = useState<ClinicRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [editClinic, setEditClinic] = useState<ClinicRow | null>(null)
   const [usersClinic, setUsersClinic] = useState<ClinicRow | null>(null)
@@ -204,9 +145,14 @@ export function ClinicsManager() {
     listClinics()
       .then((data) => {
         setClinics(data)
+        setLoadError(false)
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch((err) => {
+        logger.error('Failed to load clinics', err)
+        setLoadError(true)
+        setLoading(false)
+      })
   }
 
   useEffect(() => {
@@ -335,8 +281,24 @@ export function ClinicsManager() {
 
       <Card>
         {loading ? (
-          <CardContent className="py-8 text-center text-muted-foreground">
-            Loading...
+          <CardContent className="py-4 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-4 flex-1" />
+              </div>
+            ))}
+          </CardContent>
+        ) : loadError ? (
+          <CardContent className="py-10 text-center space-y-3">
+            <AlertCircleIcon className="mx-auto size-10 text-destructive" />
+            <p className="text-sm font-medium">Failed to load clinics</p>
+            <p className="text-xs text-muted-foreground">
+              Could not retrieve clinic data. Please try again.
+            </p>
+            <Button variant="outline" size="sm" onClick={load}>Retry</Button>
           </CardContent>
         ) : (
           <Table>

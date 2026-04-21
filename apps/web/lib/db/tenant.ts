@@ -26,12 +26,22 @@ export function tenantSql(clinicSlug: string) {
   ): Promise<T> {
     return appPool.begin(async (tx) => {
       await tx.unsafe(`SET LOCAL search_path TO "${schema}", public`)
-      // TransactionSql loses call signatures via Omit in postgres.js types.
-      // The cast to postgres.Sql restores them — tx IS callable at runtime.
       return (tx as unknown as postgres.Sql)<T>(
         strings,
         ...(values as postgres.ParameterOrFragment<never>[])
       ) as Promise<T>
     }) as Promise<T>
   }
+}
+
+export function tenantTransaction<T>(
+  clinicSlug: string,
+  fn: (sql: postgres.Sql) => Promise<T>,
+): Promise<T> {
+  assertValidSlug(clinicSlug)
+  const schema = `clinic_${clinicSlug}`
+  return appPool.begin(async (tx) => {
+    await tx.unsafe(`SET LOCAL search_path TO "${schema}", public`)
+    return fn(tx as unknown as postgres.Sql)
+  }) as Promise<T>
 }

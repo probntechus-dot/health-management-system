@@ -3,7 +3,7 @@ const nextConfig = {
   transpilePackages: ["@workspace/ui"],
   experimental: {
     staleTimes: {
-      dynamic: 30,
+      dynamic: 0,
     },
   },
 }

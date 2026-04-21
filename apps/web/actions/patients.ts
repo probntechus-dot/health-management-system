@@ -9,14 +9,20 @@ import { getAllocatedDoctorIds } from '@/lib/data/clinic'
 import { tenantSql } from '@/lib/db/tenant'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { emitQueueEvent } from '@/lib/events'
+import { logger } from '@/lib/logger'
 import type { VisitStatus } from '@/lib/types'
 import { normalizePhoneNumber } from '@/lib/utils'
 
 export async function getAllVisits(offset = 0) {
   const session = await requireAuth()
-  const doctorIds = await getAllocatedDoctorIds(session.userId, session.role, session.clinicId)
-  if (doctorIds.length === 0) return []
-  return fetchVisits(session.clinicSlug, doctorIds, offset)
+  try {
+    const doctorIds = await getAllocatedDoctorIds(session.userId, session.role, session.clinicId)
+    if (doctorIds.length === 0) return []
+    return fetchVisits(session.clinicSlug, doctorIds, offset)
+  } catch (error) {
+    logger.error('Failed to fetch visits', error)
+    return []
+  }
 }
 
 export async function createVisit(formData: FormData) {
@@ -119,20 +125,23 @@ export async function findPatientsByContact(contact: string) {
   const sanitized = contact.replace(/[%_]/g, '').replace(/\D/g, '')
   if (!sanitized) return []
 
-  // Rate limit: 30 lookups per minute per user (keyed by userId, not clinicSlug,
-  // so multiple receptionists at the same clinic have independent counters)
   const rl = checkRateLimit(`findPatientsByContact:${session.userId}`, 30, 60_000)
   if (!rl.allowed) return []
 
-  const sql = tenantSql(session.clinicSlug)
-  const rows = await sql<{ full_name: string; age: number; gender: string; address: string; contact_number: string }[]>`
-    SELECT full_name, age, gender, address, contact_number
-    FROM patients
-    WHERE contact_number ILIKE ${'%' + sanitized + '%'}
-    ORDER BY updated_at DESC
-    LIMIT 5
-  `
-  return rows
+  try {
+    const sql = tenantSql(session.clinicSlug)
+    const rows = await sql<{ full_name: string; age: number; gender: string; address: string; contact_number: string }[]>`
+      SELECT full_name, age, gender, address, contact_number
+      FROM patients
+      WHERE contact_number ILIKE ${'%' + sanitized + '%'}
+      ORDER BY updated_at DESC
+      LIMIT 5
+    `
+    return rows
+  } catch (error) {
+    logger.error('Failed to search patients by contact', error)
+    return []
+  }
 }
 
 export async function updateVisitStatus(visitId: string, status: VisitStatus) {

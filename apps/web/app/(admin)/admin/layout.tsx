@@ -8,6 +8,7 @@ import {
 } from "@workspace/ui/components/sidebar"
 import { Separator } from "@workspace/ui/components/separator"
 import { AdminBreadcrumb } from "@/components/admin/admin-breadcrumb"
+import { ThemeToggle } from "@/components/theme-provider"
 import { Toaster } from "@workspace/ui/components/sonner"
 
 export default async function AdminLayout({
@@ -26,13 +27,16 @@ export default async function AdminLayout({
       <AdminSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2">
-          <div className="flex items-center gap-2 px-4">
+          <div className="flex flex-1 items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             <AdminBreadcrumb />
+            <div className="ml-auto flex items-center gap-1">
+              <ThemeToggle />
+            </div>
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">{children}</div>
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0 overflow-y-auto">{children}</div>
       </SidebarInset>
       <Toaster />
     </SidebarProvider>
