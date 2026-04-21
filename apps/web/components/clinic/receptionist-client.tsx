@@ -31,7 +31,7 @@ export function ReceptionistClient({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(360px,420px)_1fr] gap-4 items-start">
-      <div className="lg:sticky lg:top-16">
+      <div className="lg:sticky lg:top-0">
         <PatientForm
           clinicSlug={clinicSlug}
           prefill={prefill}
