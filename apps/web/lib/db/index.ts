@@ -7,13 +7,16 @@ declare global {
   var __adminPool: postgres.Sql | undefined
 }
 
-// Application pool — limited privileges, used for all clinic queries
+// Application pool — limited privileges, used for all clinic queries.
+// prepare:false is required when DATABASE_URL points to a PgBouncer/Supavisor
+// Transaction-mode pooler, which doesn't support named prepared statements.
 export const appPool: postgres.Sql =
   globalThis.__appPool ??
   (globalThis.__appPool = postgres(process.env.DATABASE_URL!, {
     max: 10,
     idle_timeout: 30,
     connect_timeout: 10,
+    prepare: false,
   }))
 
 // Admin pool — superuser, used only for DDL (CREATE/DROP SCHEMA, provisioning).
@@ -33,4 +36,5 @@ export const adminPool: postgres.Sql =
     max: 5,
     idle_timeout: 30,
     connect_timeout: 10,
+    prepare: false,
   }))
